@@ -1,659 +1,802 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>サーバーレス日程調整</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        .tab-active { border-bottom: 2px solid #3b82f6; color: #2563eb; font-weight: bold; }
-        .tab-inactive { color: #6b7280; font-weight: normal; border-bottom: 2px solid transparent; }
-        .tab-inactive:hover { color: #3b82f6; }
-        .hidden-section { display: none; }
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>サーバーレス日程調整</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+   .tab-active {
+    border-bottom: 2px solid #3b82f6;
+    color: #2563eb;
+    font-weight: bold;
+   }
 
-        /* ラジオボタンのカスタムスタイル */
-        .radio-btn-group input[type="radio"] { display: none; }
-        .radio-btn-group label {
-            cursor: pointer;
-            padding: 0.5rem 1rem;
-            border: 1px solid #d1d5db;
-            text-align: center;
-            transition: all 0.2s;
-        }
-        .radio-btn-group label:first-of-type { border-radius: 0.375rem 0 0 0.375rem; border-right: none; }
-        .radio-btn-group label:last-of-type { border-radius: 0 0.375rem 0.375rem 0; border-left: none; }
+   .tab-inactive {
+    color: #6b7280;
+    font-weight: normal;
+    border-bottom: 2px solid transparent;
+   }
 
-        .radio-btn-group input[type="radio"][value="◯"]:checked + label { background-color: #dbeafe; border-color: #3b82f6; color: #1d4ed8; font-weight: bold; }
-        .radio-btn-group input[type="radio"][value="×"]:checked + label { background-color: #fee2e2; border-color: #ef4444; color: #b91c1c; font-weight: bold; }
-    </style>
-</head>
-<body class="bg-slate-100 text-gray-800 font-sans min-h-screen p-4 md:p-8">
+   .tab-inactive:hover {
+    color: #3b82f6;
+   }
 
-    <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden">
+   .hidden-section {
+    display: none;
+   }
 
-        <!-- ヘッダー / タブナビゲーション -->
-        <div id="tab-navigation" class="flex border-b bg-slate-50">
-            <button id="tab-create" class="flex-1 py-4 text-center tab-active focus:outline-none transition-colors" onclick="switchTab('create')">
-                <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
-                1. 作成する
-            </button>
-            <button id="tab-answer" class="flex-1 py-4 text-center tab-inactive focus:outline-none transition-colors" onclick="switchTab('answer')">
-                <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
-                2. 回答する
-            </button>
-            <button id="tab-summary" class="flex-1 py-4 text-center tab-inactive focus:outline-none transition-colors" onclick="switchTab('summary')">
-                <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                3. 集計する
-            </button>
-        </div>
+   /* ラジオボタンのカスタムスタイル */
+   .radio-btn-group input[type="radio"] {
+    display: none;
+   }
 
-        <div class="p-6 md:p-8">
+   .radio-btn-group label {
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border: 1px solid #d1d5db;
+    text-align: center;
+    transition: all 0.2s;
+   }
 
-            <!-- トーストメッセージ用コンテナ -->
-            <div id="toast" class="hidden mb-4 p-3 rounded text-sm text-center font-medium transition-opacity duration-300"></div>
+   .radio-btn-group label:first-of-type {
+    border-radius: 0.375rem 0 0 0.375rem;
+    border-right: none;
+   }
 
-            <!-- ==========================================
+   .radio-btn-group label:last-of-type {
+    border-radius: 0 0.375rem 0.375rem 0;
+    border-left: none;
+   }
+
+   .radio-btn-group input[type="radio"][value="◯"]:checked+label {
+    background-color: #dbeafe;
+    border-color: #3b82f6;
+    color: #1d4ed8;
+    font-weight: bold;
+   }
+
+   .radio-btn-group input[type="radio"][value="×"]:checked+label {
+    background-color: #fee2e2;
+    border-color: #ef4444;
+    color: #b91c1c;
+    font-weight: bold;
+   }
+  </style>
+ </head>
+ <body class="bg-slate-100 text-gray-800 font-sans min-h-screen p-4 md:p-8">
+
+  <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden">
+
+   <!-- ヘッダー / タブナビゲーション -->
+   <div id="tab-navigation" class="flex border-b bg-slate-50">
+    <button id="tab-create" class="flex-1 py-4 text-center tab-active focus:outline-none transition-colors"
+     onclick="switchTab('create')">
+     <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+     </svg>
+     1. 作成する
+    </button>
+    <button id="tab-answer" class="flex-1 py-4 text-center tab-inactive focus:outline-none transition-colors"
+     onclick="switchTab('answer')">
+     <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+      </path>
+     </svg>
+     2. 回答する
+    </button>
+    <button id="tab-summary" class="flex-1 py-4 text-center tab-inactive focus:outline-none transition-colors"
+     onclick="switchTab('summary')">
+     <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+       d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+      </path>
+     </svg>
+     3. 集計する
+    </button>
+   </div>
+
+   <div class="p-6 md:p-8">
+
+    <!-- トーストメッセージ用コンテナ -->
+    <div id="toast" class="hidden"></div>
+
+    <!-- ==========================================
                  1. イベント作成画面（代表者用）
             =========================================== -->
-            <div id="section-create" class="space-y-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">新しい日程調整を作成</h2>
-                    <p class="text-gray-600 text-sm">イベントの情報を入力して、参加者に配るためのURLを発行します。</p>
-                </div>
+    <div id="section-create" class="space-y-6">
+     <div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">新しい日程調整を作成</h2>
+      <p class="text-gray-600 text-sm">イベントの情報を入力して、参加者に配るためのURLを発行します。</p>
+     </div>
 
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">イベント名（タイトル）</label>
-                        <input type="text" id="create-title" placeholder="例: 春のBBQ大会" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                    </div>
+     <div class="space-y-4">
+      <div>
+       <label class="block text-sm font-medium text-gray-700 mb-1">イベント名（タイトル）</label>
+       <input type="text" id="create-title" placeholder="例: 春のBBQ大会"
+        class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+      </div>
 
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">候補日時を追加</label>
-                        <div class="flex flex-col sm:flex-row gap-2 mb-2">
-                            <input type="date" id="create-date" class="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-700">
-                            <input type="time" id="create-time" class="w-full sm:w-32 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-700">
-                            <button onclick="addCandidateDate()" class="bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-3 px-4 rounded-lg transition-colors whitespace-nowrap shadow-sm">
-                                追加
-                            </button>
-                        </div>
-                        <ul id="candidate-list" class="space-y-2 mt-3 empty:hidden">
-                            <!-- JSでリストが生成される -->
-                        </ul>
-                    </div>
+      <div>
+       <label class="block text-sm font-medium text-gray-700 mb-1">候補日時を追加</label>
+       <div class="flex flex-col sm:flex-row gap-2 mb-2">
+        <input type="date" id="create-date"
+         class="flex-1 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-700">
+        <input type="time" id="create-time"
+         class="w-full sm:w-32 border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-gray-700">
+        <button onclick="addCandidateDate()"
+         class="bg-blue-100 text-blue-700 hover:bg-blue-200 font-bold py-3 px-4 rounded-lg transition-colors whitespace-nowrap shadow-sm">
+         追加
+        </button>
+       </div>
+       <ul id="candidate-list" class="space-y-2 mt-3 empty:hidden">
+        <!-- JSでリストが生成される -->
+       </ul>
+      </div>
 
-                    <button onclick="generateEventUrl()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm">
-                        参加者用URLを発行する
-                    </button>
-                </div>
+      <button onclick="generateEventUrl()"
+       class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm">
+       参加者用URLを発行する
+      </button>
+     </div>
 
-                <div id="create-result" class="hidden mt-6 p-5 bg-blue-50 rounded-lg border border-blue-100">
-                    <p class="font-bold text-blue-900 mb-2">🎉 URLが発行されました！</p>
-                    <p class="text-sm text-blue-800 mb-3">このURLをコピーして、LINEなどで参加者に送ってください。</p>
-                    <div class="flex gap-2">
-                        <input type="text" id="generated-url" readonly class="flex-1 border border-blue-200 bg-white rounded-md p-2 text-sm text-gray-600 outline-none">
-                        <button onclick="copyToClipboard('generated-url', 'URLをコピーしました！')" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-bold transition-colors">
-                            コピー
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- ==========================================
-                 2. 回答画面（参加者用）
-            =========================================== -->
-            <div id="section-answer" class="hidden-section space-y-6">
-
-                <div id="answer-no-data" class="text-center py-10">
-                    <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    <p class="text-gray-500 mb-4">イベント情報が読み込めません。</p>
-                    <a href="?" class="text-blue-600 font-bold hover:underline">作成画面へ戻る</a>
-                </div>
-
-                <div id="answer-form-container" class="hidden space-y-6">
-                    <div class="border-l-4 border-blue-500 pl-4 py-1">
-                        <h2 id="display-event-title" class="text-2xl font-bold text-gray-900">イベント名</h2>
-                        <p class="text-gray-500 text-sm mt-1">希望の日程を入力し、発行されたテキストを代表者に送ってください。</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">あなたのお名前</label>
-                        <input type="text" id="answer-name" placeholder="例: 山田 太郎" class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                    </div>
-
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-3">日程の回答</label>
-                        <div id="dates-list" class="space-y-3">
-                            <!-- JSで日程リストを生成 -->
-                        </div>
-                    </div>
-
-                    <button onclick="generateAnswerToken()" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm">
-                        回答テキストを発行する
-                    </button>
-                </div>
-
-                <div id="answer-result" class="hidden mt-6 p-5 bg-green-50 rounded-lg border border-green-100">
-                    <p class="font-bold text-green-900 mb-2">✅ 回答テキストが発行されました！</p>
-                    <p class="text-sm text-green-800 mb-3">下のテキストをコピーして、<strong>代表者にLINE等で送付</strong>してください。</p>
-                    <textarea id="generated-token" readonly rows="3" class="w-full border border-green-200 bg-white rounded-md p-3 text-xs font-mono text-gray-600 outline-none mb-3 resize-none break-all"></textarea>
-                    <button onclick="copyToClipboard('generated-token', '回答テキストをコピーしました！代表者に送ってください。', 'green')" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md text-sm font-bold transition-colors">
-                        回答テキストをコピーする
-                    </button>
-                </div>
-
-                <!-- 隠しメニュー復活ボタン（代表者用） -->
-                <div class="text-center mt-8">
-                    <button onclick="document.getElementById('tab-navigation').classList.remove('hidden');" class="text-xs text-gray-400 hover:text-gray-600 underline">
-                        代表者メニューを表示
-                    </button>
-                </div>
-            </div>
-
-            <!-- ==========================================
-                 3. 集計画面（代表者用）
-            =========================================== -->
-            <div id="section-summary" class="hidden-section space-y-6">
-                <div>
-                    <h2 class="text-2xl font-bold text-gray-900 mb-2">回答の集計</h2>
-                    <p class="text-gray-600 text-sm">参加者から送られてきた「回答テキスト」を1件ずつ追加してください。</p>
-                </div>
-
-                <!-- URLによるイベント復元エリア -->
-                <div id="summary-setup-area" class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                    <label class="block text-sm font-bold text-blue-900 mb-2">イベント情報の復元</label>
-                    <p class="text-xs text-blue-800 mb-2">画面を閉じてしまった場合は、発行した「参加者用URL」をここに入力してイベント情報を読み込んでください。</p>
-                    <div class="flex flex-col sm:flex-row gap-2">
-                        <input type="text" id="summary-event-url" placeholder="https://..." class="flex-1 border border-blue-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
-                        <button onclick="loadEventFromUrl()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm whitespace-nowrap">
-                            読み込む
-                        </button>
-                    </div>
-                </div>
-
-                <div id="summary-event-info" class="hidden bg-slate-100 p-4 rounded-lg">
-                    <p class="text-sm font-bold text-gray-500">集計対象イベント:</p>
-                    <p id="summary-event-title" class="text-lg font-bold text-gray-800"></p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">参加者からの回答テキスト（1件分）</label>
-                    <input type="text" id="summary-token" placeholder="eyJ..." class="w-full border border-gray-300 rounded-lg p-3 font-mono text-xs focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-                </div>
-
-                <div class="flex gap-3">
-                    <button onclick="addAnswerToken()" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm">
-                        追加して集計
-                    </button>
-                    <button onclick="clearSummary()" class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg transition-colors shadow-sm whitespace-nowrap">
-                        リセット
-                    </button>
-                </div>
-
-                <div id="summary-result" class="hidden mt-8">
-                    <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">集計結果</h3>
-                    <div class="overflow-x-auto pb-4">
-                        <table class="w-full min-w-max border-collapse border border-gray-200 text-sm">
-                            <thead class="bg-gray-50" id="summary-thead">
-                                <!-- JSでヘッダー生成 -->
-                            </thead>
-                            <tbody id="summary-tbody" class="bg-white divide-y divide-gray-200">
-                                <!-- JSでボディ生成 -->
-                            </tbody>
-                            <tfoot class="bg-indigo-50 font-bold" id="summary-tfoot">
-                                <!-- JSでフッター（合計）生成 -->
-                            </tfoot>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-        </div>
+     <div id="create-result" class="hidden mt-6 p-5 bg-blue-50 rounded-lg border border-blue-100">
+      <p class="font-bold text-blue-900 mb-2">🎉 URLが発行されました！</p>
+      <p class="text-sm text-blue-800 mb-3">このURLをコピーして、LINEなどで参加者に送ってください。</p>
+      <div class="flex gap-2">
+       <input type="text" id="generated-url" readonly
+        class="flex-1 border border-blue-200 bg-white rounded-md p-2 text-sm text-gray-600 outline-none">
+       <button onclick="copyToClipboard('generated-url', '参加者用URLをコピーしました！', 'blue', event)"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-bold transition-colors">
+        コピー
+       </button>
+      </div>
+     </div>
     </div>
 
-    <!-- JavaScript ロジック -->
-    <script>
-        // --- 状態管理 ---
-        let currentEventData = null; // { title: "イベント名", dates: ["日程1", "日程2"] }
-        let currentAnswers = [];     // [{ name: "山田", answers: ["◯", "×"] }]
-        let creationDates = [];      // 作成中の候補日時リスト: [{ timestamp: 12345, display: "4/15..." }]
-
-        // --- 初期化処理 ---
-        document.addEventListener('DOMContentLoaded', () => {
-            // URLパラメータからイベント情報を取得
-            const urlParams = new URLSearchParams(window.location.search);
-            const encodedEvent = urlParams.get('e');
-
-            if (encodedEvent) {
-                // パラメータがある場合はデコードして回答画面を開く
-                const decoded = decodeData(encodedEvent);
-                if (decoded && decoded.title && decoded.dates) {
-                    currentEventData = decoded;
-                    setupAnswerForm();
-                    setupSummaryInfo();
-                    switchTab('answer');
-                    // 回答専用モードにするためタブを隠す
-                    document.getElementById('tab-navigation').classList.add('hidden');
-                } else {
-                    showToast('無効なイベントURLです。', 'red');
-                    switchTab('create');
-                }
-            } else {
-                // パラメータがない場合は作成画面を開く
-                switchTab('create');
-            }
-        });
-
-        // --- ユーティリティ関数 ---
-
-        // オブジェクトをBase64文字列にエンコード（日本語対応のためencodeURIComponentを挟む）
-        function encodeData(obj) {
-            return btoa(encodeURIComponent(JSON.stringify(obj)));
-        }
-
-        // Base64文字列をオブジェクトにデコード
-        function decodeData(str) {
-            try {
-                return JSON.parse(decodeURIComponent(atob(str)));
-            } catch (e) {
-                return null;
-            }
-        }
-
-        // タブ切り替え
-        function switchTab(tabId) {
-            const sections = ['create', 'answer', 'summary'];
-
-            sections.forEach(id => {
-                // コンテンツの表示・非表示
-                const sectionEl = document.getElementById(`section-${id}`);
-                if (id === tabId) {
-                    sectionEl.classList.remove('hidden-section');
-                } else {
-                    sectionEl.classList.add('hidden-section');
-                }
-
-                // タブのデザイン変更
-                const tabEl = document.getElementById(`tab-${id}`);
-                if (id === tabId) {
-                    tabEl.classList.remove('tab-inactive');
-                    tabEl.classList.add('tab-active');
-                } else {
-                    tabEl.classList.remove('tab-active');
-                    tabEl.classList.add('tab-inactive');
-                }
-            });
-        }
-
-        // トーストメッセージ表示
-        function showToast(message, color = 'blue') {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-
-            // 色の設定
-            toast.className = `mb-4 p-3 rounded text-sm text-center font-bold transition-opacity duration-300 opacity-100 block`;
-            if (color === 'red') toast.classList.add('bg-red-100', 'text-red-700');
-            else if (color === 'green') toast.classList.add('bg-green-100', 'text-green-700');
-            else toast.classList.add('bg-blue-100', 'text-blue-700');
-
-            // 3秒後に消す
-            setTimeout(() => {
-                toast.classList.replace('opacity-100', 'opacity-0');
-                setTimeout(() => { toast.classList.add('hidden'); toast.classList.remove('block'); }, 300);
-            }, 3000);
-        }
-
-        // クリップボードへコピー
-        function copyToClipboard(inputId, successMessage, color = 'blue') {
-            const inputEl = document.getElementById(inputId);
-            inputEl.select();
-            inputEl.setSelectionRange(0, 99999); // モバイル対応
-
-            try {
-                // 実行環境（iframe等）によってはnavigator.clipboardが使えないためexecCommandを使用
-                document.execCommand('copy');
-                showToast(successMessage, color);
-            } catch (err) {
-                showToast('コピーに失敗しました。手動でコピーしてください。', 'red');
-            }
-        }
-
-        // --- 1. 作成機能 ---
-        function addCandidateDate() {
-            const dateVal = document.getElementById('create-date').value;
-            const timeVal = document.getElementById('create-time').value;
-
-            if (!dateVal) {
-                showToast('日付を選択してください', 'red');
-                return;
-            }
-
-            // ソート用に日時を組み合わせてDateオブジェクトを作成
-            const dateTimeStr = timeVal ? `${dateVal}T${timeVal}` : `${dateVal}T00:00`;
-            const dateObjForSort = new Date(dateTimeStr);
-
-            const dateObj = new Date(dateVal);
-            const m = dateObj.getMonth() + 1;
-            const d = dateObj.getDate();
-            const days = ['日', '月', '火', '水', '木', '金', '土'];
-            const dayStr = days[dateObj.getDay()];
-
-            let displayStr = `${m}/${d} (${dayStr})`;
-            if (timeVal) {
-                displayStr += ` ${timeVal}〜`;
-            }
-
-            // ソート用タイムスタンプを含めて配列に追加し、タイムスタンプ順に並び替える
-            creationDates.push({ timestamp: dateObjForSort.getTime(), display: displayStr });
-            creationDates.sort((a, b) => a.timestamp - b.timestamp);
-
-            renderCandidateList();
-
-            // 追加後に日付は一旦クリア（時刻はそのままの方が連続入力しやすい場合があるので残すかはお好みで）
-            document.getElementById('create-date').value = '';
-        }
-
-        function removeCandidateDate(index) {
-            creationDates.splice(index, 1);
-            renderCandidateList();
-        }
-
-        function renderCandidateList() {
-            const listEl = document.getElementById('candidate-list');
-            listEl.innerHTML = '';
-            creationDates.forEach((dateItem, idx) => {
-                const li = document.createElement('li');
-                li.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 text-sm';
-
-                const span = document.createElement('span');
-                span.className = 'font-medium text-gray-800';
-                span.textContent = dateItem.display;
-
-                const btn = document.createElement('button');
-                btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-                btn.className = 'text-gray-400 hover:text-red-500 transition-colors p-1';
-                btn.onclick = () => removeCandidateDate(idx);
-
-                li.appendChild(span);
-                li.appendChild(btn);
-                listEl.appendChild(li);
-            });
-        }
-
-        function generateEventUrl() {
-            const titleInput = document.getElementById('create-title').value.trim();
-
-            if (!titleInput) { showToast('イベント名を入力してください', 'red'); return; }
-            if (creationDates.length === 0) { showToast('候補日時を1つ以上追加してください', 'red'); return; }
-
-            // データオブジェクト作成（表示用文字列のみを抽出して保存）
-            const eventData = {
-                title: titleInput,
-                dates: creationDates.map(item => item.display)
-            };
-
-            // URLの生成
-            const encodedString = encodeData(eventData);
-            const baseUrl = window.location.href.split('?')[0]; // クエリパラメータを除去したURL
-            const fullUrl = `${baseUrl}?e=${encodedString}`;
-
-            // 結果表示
-            document.getElementById('generated-url').value = fullUrl;
-            document.getElementById('create-result').classList.remove('hidden');
-
-            // 内部状態も更新しておく（作成者がそのまま集計画面に行けるように）
-            currentEventData = eventData;
-            setupAnswerForm();
-            setupSummaryInfo();
-
-            // スクロールダウン
-            document.getElementById('create-result').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // --- 2. 回答機能 ---
-        function setupAnswerForm() {
-            if (!currentEventData) return;
-
-            document.getElementById('answer-no-data').classList.add('hidden');
-            document.getElementById('answer-form-container').classList.remove('hidden');
-            document.getElementById('display-event-title').textContent = currentEventData.title;
-
-            const datesListEl = document.getElementById('dates-list');
-            datesListEl.innerHTML = ''; // クリア
-
-            currentEventData.dates.forEach((date, index) => {
-                const row = document.createElement('div');
-                row.className = 'flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-gray-200';
-
-                // 日付テキスト
-                const dateText = document.createElement('span');
-                dateText.className = 'font-medium text-gray-800 mb-2 sm:mb-0';
-                dateText.textContent = date;
-
-                // ラジオボタングループ
-                const radioGroup = document.createElement('div');
-                radioGroup.className = 'flex radio-btn-group w-full sm:w-auto';
-
-                const options = ['◯', '×'];
-                options.forEach(opt => {
-                    const id = `ans-${index}-${opt}`;
-                    const name = `date-${index}`;
-
-                    const input = document.createElement('input');
-                    input.type = 'radio';
-                    input.id = id;
-                    input.name = name;
-                    input.value = opt;
-                    if (opt === '◯') input.checked = true; // デフォルトで◯を選択
-
-                    const label = document.createElement('label');
-                    label.htmlFor = id;
-                    label.textContent = opt;
-                    label.className = 'flex-1 sm:flex-none w-12';
-
-                    radioGroup.appendChild(input);
-                    radioGroup.appendChild(label);
-                });
-
-                row.appendChild(dateText);
-                row.appendChild(radioGroup);
-                datesListEl.appendChild(row);
-            });
-        }
-
-        function generateAnswerToken() {
-            const nameInput = document.getElementById('answer-name').value.trim();
-            if (!nameInput) { showToast('お名前を入力してください', 'red'); return; }
-
-            const answersArray = [];
-            currentEventData.dates.forEach((_, index) => {
-                const selected = document.querySelector(`input[name="date-${index}"]:checked`);
-                answersArray.push(selected ? selected.value : '×'); // 万が一未選択なら×扱い
-            });
-
-            // トークン用データ
-            const answerData = {
-                n: nameInput,
-                a: answersArray
-            };
-
-            const encodedToken = encodeData(answerData);
-
-            document.getElementById('generated-token').value = encodedToken;
-            document.getElementById('answer-result').classList.remove('hidden');
-            document.getElementById('answer-result').scrollIntoView({ behavior: 'smooth' });
-        }
-
-        // --- 3. 集計機能 ---
-        function setupSummaryInfo() {
-            if (currentEventData) {
-                document.getElementById('summary-event-info').classList.remove('hidden');
-                document.getElementById('summary-event-title').textContent = currentEventData.title;
-            }
-        }
-
-        function loadEventFromUrl() {
-            const urlStr = document.getElementById('summary-event-url').value.trim();
-            if (!urlStr) {
-                showToast('URLを入力してください。', 'red');
-                return;
-            }
-
-            try {
-                // URLから 'e' パラメータを抽出 (httpが無い場合も考慮)
-                const safeUrlStr = urlStr.startsWith('http') ? urlStr : 'https://' + urlStr;
-                const url = new URL(safeUrlStr);
-                const encodedEvent = url.searchParams.get('e');
-
-                if (encodedEvent) {
-                    const decoded = decodeData(encodedEvent);
-                    if (decoded && decoded.title && decoded.dates) {
-                        currentEventData = decoded;
-                        setupSummaryInfo();
-                        setupAnswerForm(); // 再回答用にフォームも準備しておく
-
-                        showToast('イベント情報を読み込みました！', 'green');
-                        document.getElementById('summary-event-url').value = '';
-
-                        // 表を再描画（もし既に回答追加中にURLを再設定した場合などのため）
-                        if(currentAnswers.length > 0) {
-                            renderSummaryTable(currentAnswers);
-                        }
-                    } else {
-                        showToast('無効なイベントデータです。', 'red');
-                    }
-                } else {
-                    showToast('入力されたURLにイベント情報が含まれていません。', 'red');
-                }
-            } catch (e) {
-                showToast('正しいURL形式で入力してください。', 'red');
-            }
-        }
-
-        function addAnswerToken() {
-            if (!currentEventData) {
-                showToast('イベント情報がありません。上の「イベント情報の復元」にURLを入力するか、「作成」タブで作成してください。', 'red');
-                return;
-            }
-
-            const tokenInput = document.getElementById('summary-token');
-            const tokenStr = tokenInput.value.trim();
-
-            if (!tokenStr) {
-                showToast('回答テキストを入力してください。', 'red');
-                return;
-            }
-
-            const decoded = decodeData(tokenStr);
-            if (decoded && decoded.n && Array.isArray(decoded.a)) {
-                let safeAnswers = decoded.a;
-                // イベントの日程数と回答数が合わない場合は補正
-                if (safeAnswers.length < currentEventData.dates.length) {
-                    const diff = currentEventData.dates.length - safeAnswers.length;
-                    safeAnswers = safeAnswers.concat(Array(diff).fill('-'));
-                }
-
-                // 同じ名前の人がいれば上書き、いなければ追加
-                const existingIndex = currentAnswers.findIndex(ans => ans.name === decoded.n);
-                if (existingIndex >= 0) {
-                    currentAnswers[existingIndex] = { name: decoded.n, answers: safeAnswers };
-                    showToast(`${decoded.n} さんの回答を更新しました！`, 'blue');
-                } else {
-                    currentAnswers.push({ name: decoded.n, answers: safeAnswers });
-                    showToast(`${decoded.n} さんの回答を追加しました！`, 'green');
-                }
-
-                tokenInput.value = ''; // 入力欄をクリア
-                renderSummaryTable(currentAnswers);
-                document.getElementById('summary-result').classList.remove('hidden');
-            } else {
-                showToast('無効な回答テキストです。', 'red');
-            }
-        }
-
-        function clearSummary() {
-            if (currentAnswers.length === 0) return;
-            if (confirm('これまで追加した回答データをすべてクリアしますか？')) {
-                currentAnswers = [];
-                document.getElementById('summary-result').classList.add('hidden');
-                showToast('集計データをリセットしました。', 'blue');
-            }
-        }
-
-        function renderSummaryTable(answers) {
-            const thead = document.getElementById('summary-thead');
-            const tbody = document.getElementById('summary-tbody');
-            const tfoot = document.getElementById('summary-tfoot');
-
-            thead.innerHTML = '';
-            tbody.innerHTML = '';
-            tfoot.innerHTML = '';
-
-            // --- ヘッダー生成 ---
-            const trHead = document.createElement('tr');
-
-            const thName = document.createElement('th');
-            thName.className = 'px-4 py-3 text-left font-bold text-gray-600 border border-gray-200 min-w-[120px] sticky left-0 bg-gray-50';
-            thName.textContent = '参加者';
-            trHead.appendChild(thName);
-
-            currentEventData.dates.forEach(date => {
-                const th = document.createElement('th');
-                th.className = 'px-4 py-3 text-center font-bold text-gray-600 border border-gray-200 min-w-[80px] whitespace-nowrap';
-                th.textContent = date;
-                trHead.appendChild(th);
-            });
-            thead.appendChild(trHead);
-
-            // --- 集計用配列の初期化 ---
-            const counts = currentEventData.dates.map(() => ({ o: 0, x: 0 }));
-
-            // --- ボディ生成 ---
-            answers.forEach(userAns => {
-                const tr = document.createElement('tr');
-
-                const tdName = document.createElement('td');
-                tdName.className = 'px-4 py-3 font-medium text-gray-800 border border-gray-200 sticky left-0 bg-white';
-                tdName.textContent = userAns.name;
-                tr.appendChild(tdName);
-
-                currentEventData.dates.forEach((_, idx) => {
-                    const td = document.createElement('td');
-                    td.className = 'px-4 py-3 text-center text-lg border border-gray-200';
-                    const mark = userAns.answers[idx] || '-';
-                    td.textContent = mark;
-
-                    // 色付けと集計
-                    if (mark === '◯') { td.classList.add('text-blue-600', 'bg-blue-50/30'); counts[idx].o++; }
-                    else if (mark === '×') { td.classList.add('text-red-500'); counts[idx].x++; }
-                    else { td.classList.add('text-gray-300'); }
-
-                    tr.appendChild(td);
-                });
-                tbody.appendChild(tr);
-            });
-
-            // --- フッター（合計）生成 ---
-            const trFoot = document.createElement('tr');
-            const tdLabel = document.createElement('td');
-            tdLabel.className = 'px-4 py-3 text-right font-bold text-indigo-900 border border-gray-200 sticky left-0 bg-indigo-50';
-            tdLabel.textContent = '◯の数 / 参加者数';
-            trFoot.appendChild(tdLabel);
-
-            counts.forEach(count => {
-                const td = document.createElement('td');
-                td.className = 'px-4 py-3 text-center font-bold text-indigo-700 border border-gray-200';
-
-                // 全員◯ならハイライト
-                if (count.o === answers.length && answers.length > 0) {
-                    td.className += ' bg-yellow-100 text-yellow-800 text-xl';
-                    td.textContent = `★ ${count.o} / ${answers.length}`;
-                } else {
-                    td.textContent = `${count.o} / ${answers.length}`;
-                }
-                trFoot.appendChild(td);
-            });
-            tfoot.appendChild(trFoot);
-        }
-    </script>
-</body>
+    <!-- ==========================================
+                 2. 回答画面（参加者用）
+            =========================================== -->
+    <div id="section-answer" class="hidden-section space-y-6">
+
+     <div id="answer-no-data" class="text-center py-10">
+      <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+       </path>
+      </svg>
+      <p class="text-gray-500 mb-4">イベント情報が読み込めません。</p>
+      <a href="?" class="text-blue-600 font-bold hover:underline">作成画面へ戻る</a>
+     </div>
+
+     <div id="answer-form-container" class="hidden space-y-6">
+      <div class="border-l-4 border-blue-500 pl-4 py-1">
+       <h2 id="display-event-title" class="text-2xl font-bold text-gray-900">イベント名</h2>
+       <p class="text-gray-500 text-sm mt-1">希望の日程を入力し、発行されたリンクを代表者に送ってください。</p>
+      </div>
+
+      <div>
+       <label class="block text-sm font-medium text-gray-700 mb-1">あなたのお名前</label>
+       <input type="text" id="answer-name" placeholder="例: 山田 太郎"
+        class="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+      </div>
+
+      <div>
+       <label class="block text-sm font-medium text-gray-700 mb-3">日程の回答</label>
+       <div id="dates-list" class="space-y-3">
+        <!-- JSで日程リストを生成 -->
+       </div>
+      </div>
+
+      <button onclick="generateAnswerUrl()"
+       class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm">
+       回答リンクを発行する
+      </button>
+     </div>
+
+     <div id="answer-result" class="hidden mt-6 p-5 bg-green-50 rounded-lg border border-green-100">
+      <p class="font-bold text-green-900 mb-2">✅ 回答リンクが発行されました！</p>
+      <p class="text-sm text-green-800 mb-3">下のリンクをコピーして、<strong>代表者にLINE等で送付</strong>してください。</p>
+      <div class="flex gap-2 mb-3">
+       <input type="text" id="generated-answer-url" readonly
+        class="flex-1 border border-green-200 bg-white rounded-md p-2 text-sm text-gray-600 outline-none">
+      </div>
+      <button onclick="copyToClipboard('generated-answer-url', '回答リンクをコピーしました！代表者に送ってください。', 'green', event)"
+       class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md text-sm font-bold transition-colors">
+       リンクをコピーする
+      </button>
+     </div>
+
+     <!-- 隠しメニュー復活ボタン（代表者用） -->
+     <div class="text-center mt-8">
+      <button onclick="document.getElementById('tab-navigation').classList.remove('hidden');"
+       class="text-xs text-gray-400 hover:text-gray-600 underline">
+       代表者メニューを表示
+      </button>
+     </div>
+    </div>
+
+    <!-- ==========================================
+                 3. 集計画面（代表者用）
+            =========================================== -->
+    <div id="section-summary" class="hidden-section space-y-6">
+     <div>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">回答の集計</h2>
+      <p class="text-gray-600 text-sm">参加者から送られてきた「回答リンク」をクリックすると、ここに自動で集計されます。</p>
+     </div>
+
+     <!-- URLによるイベント復元エリア -->
+     <div id="summary-setup-area" class="bg-blue-50 p-4 rounded-lg border border-blue-100">
+      <label class="block text-sm font-bold text-blue-900 mb-2">イベント情報の復元</label>
+      <p class="text-xs text-blue-800 mb-2">画面を閉じてしまった場合は、発行した「参加者用URL」をここに入力して読み込んでください。</p>
+      <div class="flex flex-col sm:flex-row gap-2">
+       <input type="text" id="summary-event-url" placeholder="https://..."
+        class="flex-1 border border-blue-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+       <button onclick="loadEventFromUrl()"
+        class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors text-sm whitespace-nowrap">
+        読み込む
+       </button>
+      </div>
+     </div>
+
+     <div id="summary-event-info" class="hidden bg-slate-100 p-4 rounded-lg">
+      <p class="text-sm font-bold text-gray-500">集計対象イベント:</p>
+      <p id="summary-event-title" class="text-lg font-bold text-gray-800"></p>
+     </div>
+
+     <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">手動で追加する（回答リンクを貼り付け）</label>
+      <div class="flex flex-col sm:flex-row gap-2">
+       <input type="text" id="summary-token" placeholder="https://... または eyJ..."
+        class="flex-1 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+       <button onclick="addAnswerManual()"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm whitespace-nowrap">
+        追加して集計
+       </button>
+      </div>
+     </div>
+
+     <div class="text-right">
+      <button onclick="clearSummary()" class="text-sm text-gray-500 hover:text-red-600 underline transition-colors">
+       集計データをリセットする
+      </button>
+     </div>
+
+     <div id="summary-result" class="hidden mt-8">
+      <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">集計結果</h3>
+      <div class="overflow-x-auto pb-4">
+       <table class="w-full min-w-max border-collapse border border-gray-200 text-sm">
+        <thead class="bg-gray-50" id="summary-thead">
+         <!-- JSでヘッダー生成 -->
+        </thead>
+        <tbody id="summary-tbody" class="bg-white divide-y divide-gray-200">
+         <!-- JSでボディ生成 -->
+        </tbody>
+        <tfoot class="bg-indigo-50 font-bold" id="summary-tfoot">
+         <!-- JSでフッター（合計）生成 -->
+        </tfoot>
+       </table>
+      </div>
+     </div>
+    </div>
+
+   </div>
+  </div>
+
+  <!-- JavaScript ロジック -->
+  <script>
+   // --- 状態管理 ---
+   let currentEventData = null; // { title: "イベント名", dates: ["日程1", "日程2"] }
+   let currentAnswers = [];     // [{ name: "山田", answers: ["◯", "×"] }]
+   let creationDates = [];      // 作成中の候補日時リスト: [{ timestamp: 12345, display: "4/15..." }]
+   let currentStorageKey = '';  // localStorage保存用のキー
+
+   // --- 初期化処理 ---
+   document.addEventListener('DOMContentLoaded', () => {
+    // URLパラメータから情報を取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const encodedEvent = urlParams.get('e');
+    const encodedAnswer = urlParams.get('a');
+
+    if (encodedEvent) {
+     const decodedEvent = decodeData(encodedEvent);
+     if (decodedEvent && decodedEvent.title && decodedEvent.dates) {
+      currentEventData = decodedEvent;
+      currentStorageKey = 'survey_' + encodedEvent; // URLごとに保存先を分ける
+
+      // ブラウザのlocalStorageから既存の集計データを復元
+      const storedAnswers = localStorage.getItem(currentStorageKey);
+      if (storedAnswers) {
+       try {
+        currentAnswers = JSON.parse(storedAnswers);
+       } catch (e) { console.error("Failed to parse stored answers"); }
+      }
+
+      setupAnswerForm();
+      setupSummaryInfo();
+
+      if (encodedAnswer) {
+       // 【集計リンクを踏んだ場合】回答データを処理して集計画面へ
+       processAnswerData(encodedAnswer, true);
+       switchTab('summary');
+       document.getElementById('summary-result').classList.remove('hidden');
+
+       // リロード時に再度追加されないよう、URLから 'a' パラメータを消してスッキリさせる
+       const cleanUrl = window.location.pathname + '?e=' + encodedEvent;
+       window.history.replaceState({}, document.title, cleanUrl);
+      } else {
+       // 【参加者用URLを踏んだ場合】回答専用モードで表示
+       switchTab('answer');
+       document.getElementById('tab-navigation').classList.add('hidden');
+      }
+     } else {
+      showToast('無効なイベントURLです。', 'red');
+      switchTab('create');
+     }
+    } else {
+     // パラメータがない場合は作成画面を開く
+     switchTab('create');
+    }
+   });
+
+   // --- ユーティリティ関数 ---
+
+   function encodeData(obj) {
+    return btoa(encodeURIComponent(JSON.stringify(obj)));
+   }
+
+   function decodeData(str) {
+    try {
+     return JSON.parse(decodeURIComponent(atob(str)));
+    } catch (e) {
+     return null;
+    }
+   }
+
+   function switchTab(tabId) {
+    const sections = ['create', 'answer', 'summary'];
+
+    sections.forEach(id => {
+     const sectionEl = document.getElementById(`section-${id}`);
+     if (id === tabId) {
+      sectionEl.classList.remove('hidden-section');
+     } else {
+      sectionEl.classList.add('hidden-section');
+     }
+
+     const tabEl = document.getElementById(`tab-${id}`);
+     if (id === tabId) {
+      tabEl.classList.remove('tab-inactive');
+      tabEl.classList.add('tab-active');
+     } else {
+      tabEl.classList.remove('tab-active');
+      tabEl.classList.add('tab-inactive');
+     }
+    });
+
+    // 集計画面を開いた時、データがあれば表を表示
+    if (tabId === 'summary' && currentAnswers.length > 0) {
+     renderSummaryTable(currentAnswers);
+     document.getElementById('summary-result').classList.remove('hidden');
+    }
+   }
+
+   let toastTimeout;
+
+   function showToast(message, color = 'blue', event = null) {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+
+    // ベースのクラス設定 (最前面に表示し、影をつける)
+    toast.className = `z-50 p-3 rounded-lg shadow-lg text-sm text-center font-bold transition-opacity duration-300 opacity-100 pointer-events-none`;
+
+    if (color === 'red') toast.classList.add('bg-red-100', 'text-red-700', 'border', 'border-red-200');
+    else if (color === 'green') toast.classList.add('bg-green-100', 'text-green-700', 'border', 'border-green-200');
+    else toast.classList.add('bg-blue-100', 'text-blue-700', 'border', 'border-blue-200');
+
+    if (event && event.currentTarget) {
+     // ボタンの近くに絶対配置
+     toast.style.position = 'absolute';
+     const rect = event.currentTarget.getBoundingClientRect();
+     const top = rect.top + window.scrollY - 10; // ボタンの上
+     const left = rect.left + window.scrollX + (rect.width / 2);
+
+     toast.style.top = `${top}px`;
+     toast.style.left = `${left}px`;
+     toast.style.transform = 'translate(-50%, -100%)';
+    } else {
+     // デフォルトは画面上部中央に固定配置
+     toast.style.position = 'fixed';
+     toast.style.top = '20px';
+     toast.style.left = '50%';
+     toast.style.transform = 'translate(-50%, 0)';
+    }
+
+    toast.classList.remove('hidden');
+
+    if (toastTimeout) clearTimeout(toastTimeout);
+
+    toastTimeout = setTimeout(() => {
+     toast.classList.replace('opacity-100', 'opacity-0');
+     setTimeout(() => { toast.classList.add('hidden'); }, 300);
+    }, 2500);
+   }
+
+   function copyToClipboard(inputId, successMessage, color = 'blue', event = null) {
+    const inputEl = document.getElementById(inputId);
+    inputEl.select();
+    inputEl.setSelectionRange(0, 99999);
+
+    try {
+     document.execCommand('copy');
+     showToast(successMessage, color, event);
+    } catch (err) {
+     showToast('コピーに失敗しました。手動でコピーしてください。', 'red', event);
+    }
+   }
+
+   // --- 1. 作成機能 ---
+   function addCandidateDate() {
+    const dateVal = document.getElementById('create-date').value;
+    const timeVal = document.getElementById('create-time').value;
+
+    if (!dateVal) {
+     showToast('日付を選択してください', 'red');
+     return;
+    }
+
+    const dateTimeStr = timeVal ? `${dateVal}T${timeVal}` : `${dateVal}T00:00`;
+    const dateObjForSort = new Date(dateTimeStr);
+
+    const dateObj = new Date(dateVal);
+    const m = dateObj.getMonth() + 1;
+    const d = dateObj.getDate();
+    const days = ['日', '月', '火', '水', '木', '金', '土'];
+    const dayStr = days[dateObj.getDay()];
+
+    let displayStr = `${m}/${d} (${dayStr})`;
+    if (timeVal) displayStr += ` ${timeVal}〜`;
+
+    creationDates.push({ timestamp: dateObjForSort.getTime(), display: displayStr });
+    creationDates.sort((a, b) => a.timestamp - b.timestamp);
+
+    renderCandidateList();
+    document.getElementById('create-date').value = '';
+   }
+
+   function removeCandidateDate(index) {
+    creationDates.splice(index, 1);
+    renderCandidateList();
+   }
+
+   function renderCandidateList() {
+    const listEl = document.getElementById('candidate-list');
+    listEl.innerHTML = '';
+    creationDates.forEach((dateItem, idx) => {
+     const li = document.createElement('li');
+     li.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 text-sm';
+
+     const span = document.createElement('span');
+     span.className = 'font-medium text-gray-800';
+     span.textContent = dateItem.display;
+
+     const btn = document.createElement('button');
+     btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+     btn.className = 'text-gray-400 hover:text-red-500 transition-colors p-1';
+     btn.onclick = () => removeCandidateDate(idx);
+
+     li.appendChild(span);
+     li.appendChild(btn);
+     listEl.appendChild(li);
+    });
+   }
+
+   function generateEventUrl() {
+    const titleInput = document.getElementById('create-title').value.trim();
+
+    if (!titleInput) { showToast('イベント名を入力してください', 'red'); return; }
+    if (creationDates.length === 0) { showToast('候補日時を1つ以上追加してください', 'red'); return; }
+
+    const eventData = {
+     title: titleInput,
+     dates: creationDates.map(item => item.display)
+    };
+
+    const encodedString = encodeData(eventData);
+    const baseUrl = window.location.href.split('?')[0];
+    const fullUrl = `${baseUrl}?e=${encodedString}`;
+
+    document.getElementById('generated-url').value = fullUrl;
+    document.getElementById('create-result').classList.remove('hidden');
+
+    // 状態更新
+    currentEventData = eventData;
+    currentStorageKey = 'survey_' + encodedString;
+    currentAnswers = []; // 新規作成時は空
+    setupAnswerForm();
+    setupSummaryInfo();
+
+    document.getElementById('create-result').scrollIntoView({ behavior: 'smooth' });
+   }
+
+   // --- 2. 回答機能 ---
+   function setupAnswerForm() {
+    if (!currentEventData) return;
+
+    document.getElementById('answer-no-data').classList.add('hidden');
+    document.getElementById('answer-form-container').classList.remove('hidden');
+    document.getElementById('display-event-title').textContent = currentEventData.title;
+
+    const datesListEl = document.getElementById('dates-list');
+    datesListEl.innerHTML = '';
+
+    currentEventData.dates.forEach((date, index) => {
+     const row = document.createElement('div');
+     row.className = 'flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-gray-200';
+
+     const dateText = document.createElement('span');
+     dateText.className = 'font-medium text-gray-800 mb-2 sm:mb-0';
+     dateText.textContent = date;
+
+     const radioGroup = document.createElement('div');
+     radioGroup.className = 'flex radio-btn-group w-full sm:w-auto';
+
+     const options = ['◯', '×'];
+     options.forEach(opt => {
+      const id = `ans-${index}-${opt}`;
+      const name = `date-${index}`;
+
+      const input = document.createElement('input');
+      input.type = 'radio';
+      input.id = id;
+      input.name = name;
+      input.value = opt;
+      if (opt === '◯') input.checked = true;
+
+      const label = document.createElement('label');
+      label.htmlFor = id;
+      label.textContent = opt;
+      label.className = 'flex-1 sm:flex-none w-12';
+
+      radioGroup.appendChild(input);
+      radioGroup.appendChild(label);
+     });
+
+     row.appendChild(dateText);
+     row.appendChild(radioGroup);
+     datesListEl.appendChild(row);
+    });
+   }
+
+   function generateAnswerUrl() {
+    const nameInput = document.getElementById('answer-name').value.trim();
+    if (!nameInput) { showToast('お名前を入力してください', 'red'); return; }
+
+    const answersArray = [];
+    currentEventData.dates.forEach((_, index) => {
+     const selected = document.querySelector(`input[name="date-${index}"]:checked`);
+     answersArray.push(selected ? selected.value : '×');
+    });
+
+    const answerData = {
+     n: nameInput,
+     a: answersArray
+    };
+
+    const encodedAnswerToken = encodeData(answerData);
+
+    // 現在のイベント情報パラメータ(e)を取得
+    const urlParams = new URLSearchParams(window.location.search);
+    const currentE = urlParams.get('e') || encodeData(currentEventData); // 念のため再生成対応
+
+    // イベント情報(e)と回答情報(a)を含んだ集計用リンクを作成
+    const baseUrl = window.location.href.split('?')[0];
+    const answerLink = `${baseUrl}?e=${currentE}&a=${encodedAnswerToken}`;
+
+    document.getElementById('generated-answer-url').value = answerLink;
+    document.getElementById('answer-result').classList.remove('hidden');
+    document.getElementById('answer-result').scrollIntoView({ behavior: 'smooth' });
+   }
+
+   // --- 3. 集計機能 ---
+   function setupSummaryInfo() {
+    if (currentEventData) {
+     document.getElementById('summary-event-info').classList.remove('hidden');
+     document.getElementById('summary-event-title').textContent = currentEventData.title;
+    }
+   }
+
+   function loadEventFromUrl() {
+    const urlStr = document.getElementById('summary-event-url').value.trim();
+    if (!urlStr) { showToast('URLを入力してください。', 'red'); return; }
+
+    try {
+     const safeUrlStr = urlStr.startsWith('http') ? urlStr : 'https://' + urlStr;
+     const url = new URL(safeUrlStr);
+     const encodedEvent = url.searchParams.get('e');
+
+     if (encodedEvent) {
+      const decoded = decodeData(encodedEvent);
+      if (decoded && decoded.title && decoded.dates) {
+       currentEventData = decoded;
+       currentStorageKey = 'survey_' + encodedEvent;
+
+       // 保存された回答を復元
+       const storedAnswers = localStorage.getItem(currentStorageKey);
+       if (storedAnswers) {
+        try { currentAnswers = JSON.parse(storedAnswers); } catch (e) { }
+       } else {
+        currentAnswers = []; // なければクリア
+       }
+
+       setupSummaryInfo();
+       setupAnswerForm();
+       showToast('イベント情報を読み込みました！', 'green');
+       document.getElementById('summary-event-url').value = '';
+
+       if (currentAnswers.length > 0) {
+        renderSummaryTable(currentAnswers);
+        document.getElementById('summary-result').classList.remove('hidden');
+       }
+      } else {
+       showToast('無効なイベントデータです。', 'red');
+      }
+     } else {
+      showToast('入力されたURLにイベント情報が含まれていません。', 'red');
+     }
+    } catch (e) {
+     showToast('正しいURL形式で入力してください。', 'red');
+    }
+   }
+
+   // データ処理の共通関数（リンクを踏んだ時 ＆ 手動追加した時）
+   function processAnswerData(encodedAnswer, isShowSuccess = true) {
+    const decoded = decodeData(encodedAnswer);
+    if (decoded && decoded.n && Array.isArray(decoded.a)) {
+     let safeAnswers = decoded.a;
+     // 日程数が合わない場合は補正
+     if (safeAnswers.length < currentEventData.dates.length) {
+      const diff = currentEventData.dates.length - safeAnswers.length;
+      safeAnswers = safeAnswers.concat(Array(diff).fill('-'));
+     }
+
+     // 上書き or 追加
+     const existingIndex = currentAnswers.findIndex(ans => ans.name === decoded.n);
+     if (existingIndex >= 0) {
+      currentAnswers[existingIndex] = { name: decoded.n, answers: safeAnswers };
+      if (isShowSuccess) showToast(`${decoded.n} さんの回答を更新しました！`, 'blue');
+     } else {
+      currentAnswers.push({ name: decoded.n, answers: safeAnswers });
+      if (isShowSuccess) showToast(`${decoded.n} さんの回答を追加しました！`, 'green');
+     }
+
+     // localStorage に保存
+     if (currentStorageKey) {
+      localStorage.setItem(currentStorageKey, JSON.stringify(currentAnswers));
+     }
+
+     renderSummaryTable(currentAnswers);
+     return true;
+    }
+    return false;
+   }
+
+   function addAnswerManual() {
+    if (!currentEventData) {
+     showToast('イベント情報がありません。「イベント情報の復元」にURLを入力するか作成してください。', 'red');
+     return;
+    }
+
+    const inputVal = document.getElementById('summary-token').value.trim();
+    if (!inputVal) { showToast('URLまたはテキストを入力してください。', 'red'); return; }
+
+    let encodedAnswer = inputVal;
+
+    // URLが貼り付けられた場合は 'a' パラメータを抽出する
+    try {
+     const url = new URL(inputVal.startsWith('http') ? inputVal : 'https://' + inputVal);
+     const paramA = url.searchParams.get('a');
+     if (paramA) {
+      encodedAnswer = paramA;
+     }
+    } catch (e) {
+     // URLパースエラーの場合は、直接トークン文字列が貼られたとみなす
+    }
+
+    if (processAnswerData(encodedAnswer)) {
+     document.getElementById('summary-token').value = ''; // クリア
+     document.getElementById('summary-result').classList.remove('hidden');
+    } else {
+     showToast('無効な回答データです。', 'red');
+    }
+   }
+
+   function clearSummary() {
+    if (currentAnswers.length === 0) return;
+    if (confirm('これまで追加した回答データをすべて削除しますか？\n（参加者用URLは引き続き有効です）')) {
+     currentAnswers = [];
+     if (currentStorageKey) {
+      localStorage.removeItem(currentStorageKey);
+     }
+     document.getElementById('summary-result').classList.add('hidden');
+     showToast('集計データをリセットしました。', 'blue');
+    }
+   }
+
+   function renderSummaryTable(answers) {
+    const thead = document.getElementById('summary-thead');
+    const tbody = document.getElementById('summary-tbody');
+    const tfoot = document.getElementById('summary-tfoot');
+
+    thead.innerHTML = '';
+    tbody.innerHTML = '';
+    tfoot.innerHTML = '';
+
+    // --- ヘッダー生成 ---
+    const trHead = document.createElement('tr');
+
+    const thName = document.createElement('th');
+    thName.className = 'px-4 py-3 text-left font-bold text-gray-600 border border-gray-200 min-w-[120px] sticky left-0 bg-gray-50';
+    thName.textContent = '参加者';
+    trHead.appendChild(thName);
+
+    currentEventData.dates.forEach(date => {
+     const th = document.createElement('th');
+     th.className = 'px-4 py-3 text-center font-bold text-gray-600 border border-gray-200 min-w-[80px] whitespace-nowrap';
+     th.textContent = date;
+     trHead.appendChild(th);
+    });
+    thead.appendChild(trHead);
+
+    // --- 集計用配列の初期化 ---
+    const counts = currentEventData.dates.map(() => ({ o: 0, x: 0 }));
+
+    // --- ボディ生成 ---
+    answers.forEach(userAns => {
+     const tr = document.createElement('tr');
+
+     const tdName = document.createElement('td');
+     tdName.className = 'px-4 py-3 font-medium text-gray-800 border border-gray-200 sticky left-0 bg-white';
+     tdName.textContent = userAns.name;
+     tr.appendChild(tdName);
+
+     currentEventData.dates.forEach((_, idx) => {
+      const td = document.createElement('td');
+      td.className = 'px-4 py-3 text-center text-lg border border-gray-200';
+      const mark = userAns.answers[idx] || '-';
+      td.textContent = mark;
+
+      if (mark === '◯') { td.classList.add('text-blue-600', 'bg-blue-50/30'); counts[idx].o++; }
+      else if (mark === '×') { td.classList.add('text-red-500'); counts[idx].x++; }
+      else { td.classList.add('text-gray-300'); }
+
+      tr.appendChild(td);
+     });
+     tbody.appendChild(tr);
+    });
+
+    // --- フッター（合計）生成 ---
+    const trFoot = document.createElement('tr');
+    const tdLabel = document.createElement('td');
+    tdLabel.className = 'px-4 py-3 text-right font-bold text-indigo-900 border border-gray-200 sticky left-0 bg-indigo-50';
+    tdLabel.textContent = '◯の数 / 参加者数';
+    trFoot.appendChild(tdLabel);
+
+    counts.forEach(count => {
+     const td = document.createElement('td');
+     td.className = 'px-4 py-3 text-center font-bold text-indigo-700 border border-gray-200';
+
+     if (count.o === answers.length && answers.length > 0) {
+      td.className += ' bg-yellow-100 text-yellow-800 text-xl';
+      td.textContent = `★ ${count.o} / ${answers.length}`;
+     } else {
+      td.textContent = `${count.o} / ${answers.length}`;
+     }
+     trFoot.appendChild(td);
+    });
+    tfoot.appendChild(trFoot);
+   }
+  </script>
+ </body>
 </html>
