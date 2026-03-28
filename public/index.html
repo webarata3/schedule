@@ -148,8 +148,12 @@
        <input type="text" id="generated-url" readonly
         class="flex-1 border border-blue-200 bg-white rounded-md p-2 text-sm text-gray-600 outline-none">
        <button onclick="copyToClipboard('generated-url', '参加者用URLをコピーしました！', 'blue', event)"
-        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-bold transition-colors">
+        class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-bold transition-colors whitespace-nowrap">
         コピー
+       </button>
+       <button id="share-btn-create" onclick="shareUrl('generated-url', '日程調整の参加用URL')"
+        class="hidden bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-md text-sm font-bold transition-colors whitespace-nowrap">
+        共有
        </button>
       </div>
      </div>
@@ -202,10 +206,16 @@
        <input type="text" id="generated-answer-url" readonly
         class="flex-1 border border-green-200 bg-white rounded-md p-2 text-sm text-gray-600 outline-none">
       </div>
-      <button onclick="copyToClipboard('generated-answer-url', '回答リンクをコピーしました！代表者に送ってください。', 'green', event)"
-       class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md text-sm font-bold transition-colors">
-       リンクをコピーする
-      </button>
+      <div class="flex gap-2">
+       <button onclick="copyToClipboard('generated-answer-url', '回答リンクをコピーしました！代表者に送ってください。', 'green', event)"
+        class="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-3 rounded-md text-sm font-bold transition-colors whitespace-nowrap">
+        リンクをコピーする
+       </button>
+       <button id="share-btn-answer" onclick="shareUrl('generated-answer-url', '日程調整の回答リンク')"
+        class="hidden bg-green-100 hover:bg-green-200 text-green-700 px-4 py-3 rounded-md text-sm font-bold transition-colors whitespace-nowrap">
+        共有する
+       </button>
+      </div>
      </div>
 
      <!-- 隠しメニュー復活ボタン（代表者用） -->
@@ -294,6 +304,13 @@
 
    // --- 初期化処理 ---
    document.addEventListener('DOMContentLoaded', () => {
+    // --- Web Share API の対応チェック (Firefoxを除外) ---
+    const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+    if (navigator.share && !isFirefox) {
+     document.getElementById('share-btn-create').classList.remove('hidden');
+     document.getElementById('share-btn-answer').classList.remove('hidden');
+    }
+
     // URLパラメータから情報を取得
     const urlParams = new URLSearchParams(window.location.search);
     const encodedEvent = urlParams.get('e');
@@ -433,6 +450,20 @@
      showToast(successMessage, color, event);
     } catch (err) {
      showToast('コピーに失敗しました。手動でコピーしてください。', 'red', event);
+    }
+   }
+
+   async function shareUrl(inputId, textMsg) {
+    const url = document.getElementById(inputId).value;
+    try {
+     await navigator.share({
+      title: '日程調整',
+      text: textMsg,
+      url: url
+     });
+    } catch (err) {
+     // ユーザーが共有をキャンセルした場合などは何もしない
+     console.log('Share canceled or failed.', err);
     }
    }
 
