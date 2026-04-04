@@ -6,20 +6,24 @@
   <title>サーバーレス日程調整</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
+   /* ボトムタブのアクティブ・非アクティブスタイル */
    .tab-active {
-    border-bottom: 2px solid #3b82f6;
     color: #2563eb;
-    font-weight: bold;
+    /* blue-600 */
+   }
+
+   .tab-active svg {
+    stroke-width: 2.5;
    }
 
    .tab-inactive {
-    color: #6b7280;
-    font-weight: normal;
-    border-bottom: 2px solid transparent;
+    color: #9ca3af;
+    /* gray-400 */
    }
 
    .tab-inactive:hover {
-    color: #3b82f6;
+    color: #6b7280;
+    /* gray-500 */
    }
 
    .hidden-section {
@@ -62,42 +66,77 @@
     color: #b91c1c;
     font-weight: bold;
    }
+
+   /* PC用のタブスタイル (md: 768px以上) */
+   @media (min-width: 768px) {
+    .tab-active {
+     border-bottom: 2px solid #3b82f6;
+    }
+
+    .tab-inactive {
+     color: #6b7280;
+     border-bottom: 2px solid transparent;
+    }
+
+    .tab-inactive:hover {
+     color: #3b82f6;
+    }
+   }
   </style>
  </head>
- <body class="bg-slate-100 text-gray-800 font-sans min-h-screen p-4 md:p-8">
+ <!-- スマホアプリ風レイアウト: 画面の高さを100dvhに固定し、flex-colで縦に分割 -->
+ <body class="bg-gray-100 text-gray-800 font-sans h-[100dvh] flex flex-col overflow-hidden">
 
-  <div class="max-w-3xl mx-auto bg-white rounded-2xl shadow-lg overflow-hidden">
-   <h1 class="bg-blue-500 text-3xl font-bold text-white p-2  text-center">日程調整さん</h1>
-   <!-- ヘッダー / タブナビゲーション -->
-   <div id="tab-navigation" class="flex border-b bg-slate-50">
-    <button id="tab-create" class="flex-1 py-4 text-center tab-active focus:outline-none transition-colors"
-     onclick="switchTab('create')">
-     <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-     </svg>
-     1. 作成する
-    </button>
-    <button id="tab-answer" class="flex-1 py-4 text-center tab-inactive focus:outline-none transition-colors"
-     onclick="switchTab('answer')">
-     <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
-      </path>
-     </svg>
-     2. 回答する
-    </button>
-    <button id="tab-summary" class="flex-1 py-4 text-center tab-inactive focus:outline-none transition-colors"
-     onclick="switchTab('summary')">
-     <svg class="w-5 h-5 inline-block mr-1 -mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-       d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
-      </path>
-     </svg>
-     3. 集計する
-    </button>
-   </div>
+  <!-- 1. ヘッダー (常に一番上: order-1) -->
+  <header class="order-1 bg-blue-600 text-white p-3 text-center font-bold text-lg shrink-0 shadow z-20">
+   日程調整さん
+  </header>
 
-   <div class="p-6 md:p-8">
+  <!-- 2. タブナビゲーション (スマホは下: order-3, PCは上: order-2) -->
+  <nav id="tab-navigation"
+   class="order-3 md:order-2 shrink-0 bg-white md:bg-slate-50 border-t md:border-t-0 md:border-b border-gray-200 z-20 w-full max-w-2xl mx-auto flex justify-around items-center h-16 md:h-auto shadow-[0_-4px_10px_rgba(0,0,0,0.05)] md:shadow-none">
+   <button id="tab-create"
+    class="flex-1 flex flex-col md:flex-row items-center justify-center h-full md:py-4 tab-active transition-colors focus:outline-none"
+    onclick="switchTab('create')">
+    <svg class="w-6 h-6 mb-1 md:mb-0 md:w-5 md:h-5 md:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+    </svg>
+    <span class="text-[10px] md:text-base font-bold leading-none">
+     <span class="md:hidden">作成</span>
+     <span class="hidden md:inline">1. 作成する</span>
+    </span>
+   </button>
+   <button id="tab-answer"
+    class="flex-1 flex flex-col md:flex-row items-center justify-center h-full md:py-4 tab-inactive transition-colors focus:outline-none"
+    onclick="switchTab('answer')">
+    <svg class="w-6 h-6 mb-1 md:mb-0 md:w-5 md:h-5 md:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z">
+     </path>
+    </svg>
+    <span class="text-[10px] md:text-base font-bold leading-none">
+     <span class="md:hidden">回答</span>
+     <span class="hidden md:inline">2. 回答する</span>
+    </span>
+   </button>
+   <button id="tab-summary"
+    class="flex-1 flex flex-col md:flex-row items-center justify-center h-full md:py-4 tab-inactive transition-colors focus:outline-none"
+    onclick="switchTab('summary')">
+    <svg class="w-6 h-6 mb-1 md:mb-0 md:w-5 md:h-5 md:mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+      d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z">
+     </path>
+    </svg>
+    <span class="text-[10px] md:text-base font-bold leading-none">
+     <span class="md:hidden">集計</span>
+     <span class="hidden md:inline">3. 集計する</span>
+    </span>
+   </button>
+  </nav>
+
+  <!-- 3. メインコンテンツ (スマホは上: order-2, PCは下: order-3) -->
+  <main class="order-2 md:order-3 flex-1 overflow-y-auto w-full max-w-2xl mx-auto bg-white relative shadow-sm">
+   <div class="p-5 md:p-8 space-y-6 pb-12 md:pb-8">
 
     <!-- トーストメッセージ用コンテナ -->
     <div id="toast" class="hidden"></div>
@@ -107,7 +146,7 @@
             =========================================== -->
     <div id="section-create" class="space-y-6">
      <div>
-      <h2 class="text-2xl font-bold text-gray-900 mb-2">新しい日程調整を作成</h2>
+      <h2 class="text-2xl font-bold text-gray-900 mb-2">新しい日程調整</h2>
       <p class="text-gray-600 text-sm">イベントの情報を入力して、参加者に配るためのURLを発行します。</p>
      </div>
 
@@ -292,7 +331,12 @@
     </div>
 
    </div>
-  </div>
+  </main>
+
+  <!-- 4. 著作権表示 (常に一番下: order-4) -->
+  <footer class="order-4 shrink-0 bg-gray-100 py-1.5 text-center w-full z-20">
+   <p class="text-[10px] text-gray-500">&copy; 2026 webarata3</p>
+  </footer>
 
   <!-- JavaScript ロジック -->
   <script>
@@ -423,9 +467,15 @@
      toast.style.left = `${left}px`;
      toast.style.transform = 'translate(-50%, -100%)';
     } else {
-     // デフォルトは画面上部中央に固定配置
+     // デフォルト配置（スマホ: 下部、PC: 上部）
      toast.style.position = 'fixed';
-     toast.style.top = '20px';
+     if (window.innerWidth >= 768) {
+      toast.style.top = '20px';
+      toast.style.bottom = 'auto';
+     } else {
+      toast.style.bottom = '100px';
+      toast.style.top = 'auto';
+     }
      toast.style.left = '50%';
      toast.style.transform = 'translate(-50%, 0)';
     }

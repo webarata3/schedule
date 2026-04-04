@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>URLだけで完結！超シンプル日程調整ツール - 使い方ガイド</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- アイコン用のライブラリ -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+
+   body {
+    font-family: 'Noto Sans JP', sans-serif;
+    scroll-behavior: smooth;
+   }
+  </style>
+ </head>
+ <body class="bg-slate-50 text-slate-800 antialiased">
+
+  <!-- ヘッダー -->
+  <header class="bg-white shadow-sm sticky top-0 z-50">
+   <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+     <i data-lucide="calendar-check" class="text-blue-600 w-6 h-6"></i>
+     <span class="font-bold text-lg tracking-tight">Simple Schedule</span>
+    </div>
+    <nav>
+     <a href="https://schedule.webarata3.app/" target="_blank" rel="noopener noreferrer"
+      class="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+      <span>アプリを開く</span>
+      <i data-lucide="external-link" class="w-4 h-4"></i>
+     </a>
+    </nav>
+   </div>
+  </header>
+
+  <!-- ヒーローセクション -->
+  <section class="bg-gradient-to-b from-blue-50 text-center py-20 px-4">
+   <div class="max-w-3xl mx-auto">
+    <h1 class="text-3xl md:text-5xl font-bold text-slate-900 mb-6 leading-tight">
+     サーバー保存なしで安心。<br>
+     <span class="text-blue-600">URLのやり取りだけ</span>で完結する<br>新しい日程調整。
+    </h1>
+    <p class="text-lg text-slate-600 mb-10 leading-relaxed">
+     ログインやアカウント登録は一切不要。作成したイベント情報も、参加者の回答もすべて「URL」の中に暗号化して保持されます。これまでにない、プライバシーファーストな日程調整ツールです。
+    </p>
+    <div class="flex flex-col sm:flex-row gap-4 justify-center">
+     <a href="#how-to-use"
+      class="bg-white border-2 border-slate-200 hover:border-blue-600 hover:text-blue-600 text-slate-700 px-6 py-3 rounded-xl font-medium transition-all shadow-sm">
+      使い方を見る
+     </a>
+     <a href="https://schedule.webarata3.app/" target="_blank" rel="noopener noreferrer"
+      class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-medium transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2">
+      さっそく使ってみる
+      <i data-lucide="arrow-right" class="w-5 h-5"></i>
+     </a>
+    </div>
+   </div>
+  </section>
+
+  <!-- 特徴セクション -->
+  <section class="py-16 px-4 bg-white">
+   <div class="max-w-5xl mx-auto">
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+     <!-- 特徴1 -->
+     <div class="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+      <div class="w-12 h-12 bg-blue-100 text-blue-600 rounded-xl flex items-center justify-center mb-4">
+       <i data-lucide="shield-check" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-xl font-bold mb-2">サーバー保存なしで安心</h3>
+      <p class="text-slate-600 text-sm">データはデータベースに保存されません。すべての情報はURLパラメータとしてやり取りされるため、情報漏洩のリスクが極めて低いです。</p>
+     </div>
+     <!-- 特徴2 -->
+     <div class="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+      <div class="w-12 h-12 bg-green-100 text-green-600 rounded-xl flex items-center justify-center mb-4">
+       <i data-lucide="user-x" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-xl font-bold mb-2">アカウント登録不要</h3>
+      <p class="text-slate-600 text-sm">主催者も参加者も、面倒なログインやメールアドレスの登録は一切不要。サイトを開いてすぐに使い始めることができます。</p>
+     </div>
+     <!-- 特徴3 -->
+     <div class="p-6 rounded-2xl bg-slate-50 border border-slate-100">
+      <div class="w-12 h-12 bg-purple-100 text-purple-600 rounded-xl flex items-center justify-center mb-4">
+       <i data-lucide="link" class="w-6 h-6"></i>
+      </div>
+      <h3 class="text-xl font-bold mb-2">URLのコピペで完結</h3>
+      <p class="text-slate-600 text-sm">参加者へのお知らせも、回答の回収も、すべて生成された「URL」をLINEやメッセージアプリで送り合うだけで完了します。</p>
+     </div>
+    </div>
+   </div>
+  </section>
+
+  <!-- 使い方セクション -->
+  <section id="how-to-use" class="py-20 px-4 bg-slate-50">
+   <div class="max-w-5xl mx-auto">
+    <h2 class="text-3xl font-bold text-center mb-16 text-slate-900">かんたん3ステップの使い方</h2>
+
+    <div class="space-y-24">
+
+     <!-- Step 1 -->
+     <div class="flex flex-col lg:flex-row gap-10 items-center">
+      <div class="flex-1 order-2 lg:order-1">
+       <div class="inline-block bg-blue-100 text-blue-700 font-bold px-3 py-1 rounded-full text-sm mb-4">STEP 1 (主催者)
+       </div>
+       <h3 class="text-2xl font-bold mb-4 flex items-center gap-2">
+        イベントを作成してURLを配る
+       </h3>
+       <p class="mb-6 text-slate-600 leading-relaxed">
+        まずは主催者がイベントのベースを作ります。イベント名と候補となる日時を設定し、参加者へ送るための専用URLを発行します。
+       </p>
+       <ul class="space-y-3 text-slate-700">
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5"></i>
+         <span>「イベント名（タイトル）」を入力します。</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5"></i>
+         <span>カレンダーと時間を選んで、候補日時を必要なだけ「追加」します。</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5"></i>
+         <span><strong>「参加者用URLを発行する」</strong>ボタンをクリック！</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-blue-500 shrink-0 mt-0.5"></i>
+         <span>発行されたURLをコピーして、LINEなどで参加予定メンバーに一斉送信します。</span>
+        </li>
+       </ul>
+      </div>
+      <div class="flex-1 order-1 lg:order-2 w-full">
+       <!-- 実際のスクショに差し替えてください -->
+       <div class="bg-white p-2 rounded-2xl shadow-xl border border-slate-200">
+        <img src="image/intro1.webp" alt="Step 1: イベント作成画面"
+         class="rounded-xl w-full h-auto object-cover border border-slate-100">
+       </div>
+      </div>
+     </div>
+
+     <!-- Step 2 -->
+     <div class="flex flex-col lg:flex-row-reverse gap-10 items-center">
+      <div class="flex-1 order-2 lg:order-1">
+       <div class="inline-block bg-green-100 text-green-700 font-bold px-3 py-1 rounded-full text-sm mb-4">STEP 2 (参加者)
+       </div>
+       <h3 class="text-2xl font-bold mb-4 flex items-center gap-2">
+        希望日程を選んで回答リンクを返す
+       </h3>
+       <p class="mb-6 text-slate-600 leading-relaxed">
+        URLを受け取った参加者は、自分の都合を入力して「回答リンク」を発行し、主催者に送り返します。
+       </p>
+       <ul class="space-y-3 text-slate-700">
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-green-500 shrink-0 mt-0.5"></i>
+         <span>送られてきたURLを開き、「あなたのお名前」を入力します。</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-green-500 shrink-0 mt-0.5"></i>
+         <span>リストアップされた日程に対して、都合の良い日（○）と悪い日（×）を選択します。</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-green-500 shrink-0 mt-0.5"></i>
+         <span><strong>「回答リンクを発行する」</strong>ボタンをクリック！</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-green-500 shrink-0 mt-0.5"></i>
+         <span>発行された長い回答用リンクをコピーして、主催者へLINE等で返信します。</span>
+        </li>
+       </ul>
+      </div>
+      <div class="flex-1 order-1 lg:order-2 w-full">
+       <!-- 実際のスクショに差し替えてください -->
+       <div class="bg-white p-2 rounded-2xl shadow-xl border border-slate-200">
+        <img src="image/intro2.webp" alt="Step 2: 回答画面"
+         class="rounded-xl w-full h-auto object-cover border border-slate-100">
+       </div>
+      </div>
+     </div>
+
+     <!-- Step 3 -->
+     <div class="flex flex-col lg:flex-row gap-10 items-center">
+      <div class="flex-1 order-2 lg:order-1">
+       <div class="inline-block bg-purple-100 text-purple-700 font-bold px-3 py-1 rounded-full text-sm mb-4">STEP 3
+        (主催者)</div>
+       <h3 class="text-2xl font-bold mb-4 flex items-center gap-2">
+        集まったリンクを貼り付けて集計完了
+       </h3>
+       <p class="mb-6 text-slate-600 leading-relaxed">
+        主催者は、参加者から返ってきた回答リンクを自分の画面に貼り付けるだけで、自動的に結果が集計表としてまとまります。
+       </p>
+       <ul class="space-y-3 text-slate-700">
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-purple-500 shrink-0 mt-0.5"></i>
+         <span>「集計する」タブを開きます。（画面を閉じてしまった場合は、最初に作成した参加者用URLを復元エリアに読み込ませます）</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-purple-500 shrink-0 mt-0.5"></i>
+         <span>「手動で追加する」の入力欄に、参加者から送られてきた回答リンクを貼り付けます。</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-purple-500 shrink-0 mt-0.5"></i>
+         <span><strong>「追加して集計」</strong>をクリックすると、下の表に即座に反映されます。</span>
+        </li>
+        <li class="flex items-start gap-3">
+         <i data-lucide="check-circle-2" class="w-5 h-5 text-purple-500 shrink-0 mt-0.5"></i>
+         <span>全員が「○」の日程は自動でハイライトされるため、イベント開催日がひと目で決まります！</span>
+        </li>
+       </ul>
+      </div>
+      <div class="flex-1 order-1 lg:order-2 w-full">
+       <!-- 実際のスクショに差し替えてください -->
+       <div class="bg-white p-2 rounded-2xl shadow-xl border border-slate-200">
+        <img src="image/intro3.webp" alt="Step 3: 集計画面"
+         class="rounded-xl w-full h-auto object-cover border border-slate-100">
+       </div>
+      </div>
+     </div>
+
+    </div>
+   </div>
+  </section>
+
+  <!-- CTAセクション -->
+  <section class="py-20 bg-blue-600 text-white text-center px-4">
+   <div class="max-w-3xl mx-auto">
+    <h2 class="text-3xl font-bold mb-6">さっそく次のイベント日程を調整しよう</h2>
+    <p class="mb-10 text-blue-100">アカウント登録不要ですぐに使い始められます。</p>
+    <a href="https://schedule.webarata3.app/" target="_blank" rel="noopener noreferrer"
+     class="inline-flex items-center gap-2 bg-white text-blue-600 hover:bg-slate-100 px-8 py-4 rounded-xl font-bold text-lg transition-all shadow-lg">
+     アプリを開く (無料)
+     <i data-lucide="external-link" class="w-5 h-5"></i>
+    </a>
+   </div>
+  </section>
+
+  <!-- フッター -->
+  <footer class="bg-slate-900 text-slate-400 py-8 text-center text-sm">
+   <p>© 2026 webarata3</p>
+  </footer>
+
+  <!-- アイコンの初期化 -->
+  <script>
+   lucide.createIcons();
+  </script>
+ </body>
+</html>
