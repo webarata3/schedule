@@ -174,14 +174,26 @@
        </ul>
       </div>
 
+      <!-- 暗号化オプション設定 -->
+      <div class="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+       <label class="flex items-center space-x-2 cursor-pointer">
+        <input type="checkbox" id="create-encrypt"
+         class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500">
+        <span class="text-sm font-bold text-gray-700">回答データを暗号化する</span>
+       </label>
+       <p class="text-xs text-gray-500 mt-2 ml-6">ONにすると、回答URLが第三者に漏れても内容を復元できません。<br><span
+         class="text-red-500 font-medium">※集計を行うには、このブラウザを使うか「参加者用URL」を控えておく必要があります。</span></p>
+      </div>
+
       <button onclick="generateEventUrl()"
-       class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm">
+       class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm mt-4">
        参加者用URLを発行する
       </button>
      </div>
 
      <div id="create-result" class="hidden mt-6 p-5 bg-blue-50 rounded-lg border border-blue-100">
-      <p class="font-bold text-blue-900 mb-2">🎉 URLが発行されました！</p>
+      <p class="font-bold text-blue-900 mb-2">🎉 URLが発行されました！ <span id="create-result-badge"
+        class="ml-2 text-xs font-normal px-2 py-1 bg-white rounded-full border border-blue-200"></span></p>
       <p class="text-sm text-blue-800 mb-3">このURLをコピーして、LINEなどで参加者に送ってください。</p>
       <div class="flex gap-2">
        <input type="text" id="generated-url" readonly
@@ -277,8 +289,8 @@
 
      <!-- URLによるイベント復元エリア -->
      <div id="summary-setup-area" class="bg-blue-50 p-4 rounded-lg border border-blue-100">
-      <label class="block text-sm font-bold text-blue-900 mb-2">イベント情報の復元</label>
-      <p class="text-xs text-blue-800 mb-2">画面を閉じてしまった場合は、発行した「参加者用URL」をここに入力して読み込んでください。</p>
+      <label class="block text-sm font-bold text-blue-900 mb-2">イベント情報の読み込み</label>
+      <p class="text-xs text-blue-800 mb-2">集計対象を切り替える場合や、エラーが出た場合は発行した「参加者用URL」をここに入力してください。</p>
       <div class="flex flex-col sm:flex-row gap-2">
        <input type="text" id="summary-event-url" placeholder="https://..."
         class="flex-1 border border-blue-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
@@ -289,9 +301,17 @@
       </div>
      </div>
 
-     <div id="summary-event-info" class="hidden bg-slate-100 p-4 rounded-lg">
+     <div id="summary-event-info" class="hidden bg-slate-100 p-4 rounded-lg relative overflow-hidden">
+      <!-- 暗号化アイコン -->
+      <div id="summary-enc-badge" class="hidden absolute top-2 right-2 text-blue-500" title="このイベントの回答データは暗号化されています">
+       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+         d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z">
+        </path>
+       </svg>
+      </div>
       <p class="text-sm font-bold text-gray-500">集計対象イベント:</p>
-      <p id="summary-event-title" class="text-lg font-bold text-gray-800"></p>
+      <p id="summary-event-title" class="text-lg font-bold text-gray-800 pr-8"></p>
      </div>
 
      <div>
@@ -335,96 +355,141 @@
 
   <!-- 4. 著作権表示 (常に一番下: order-4) -->
   <footer class="order-4 shrink-0 bg-gray-100 py-1.5 text-center w-full z-20">
-   <p class="text-[10px] text-gray-500">&copy; 2026 webarata3</p>
+   <p class="text-[10px] text-gray-500">&copy; 2026 日程調整さん All rights reserved.</p>
   </footer>
 
   <!-- JavaScript ロジック -->
   <script>
    // --- 状態管理 ---
-   let currentEventData = null; // { title: "イベント名", dates: ["日程1", "日程2"] }
+   let currentEventData = null; // { id: "xxx", title: "...", dates: [...], enc: true/false, key: "..." }
    let currentAnswers = [];     // [{ name: "山田", answers: ["◯", "×"] }]
-   let creationDates = [];      // 作成中の候補日時リスト: [{ timestamp: 12345, display: "4/15..." }]
-   let currentStorageKey = '';  // localStorage保存用のキー
+   let creationDates = [];      // 作成中の候補日時リスト
+   let currentEventId = '';     // 現在フォーカスしているイベントID
 
-   // --- 初期化処理 ---
-   document.addEventListener('DOMContentLoaded', () => {
-    // --- Web Share API の対応チェック (Firefoxを除外) ---
-    const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
-    if (navigator.share && !isFirefox) {
-     document.getElementById('share-btn-create').classList.remove('hidden');
-     document.getElementById('share-btn-answer').classList.remove('hidden');
+   // ランダムなIDや暗号キーを生成する
+   function generateRandomStr(len = 10) {
+    return Array.from(crypto.getRandomValues(new Uint8Array(len)))
+     .map(b => b.toString(36).padStart(2, '0')).join('').substring(0, len);
+   }
+
+   // 簡易暗号化 (XOR + Base64)
+   function simpleEncrypt(obj, key) {
+    const text = encodeURIComponent(JSON.stringify(obj));
+    let result = '';
+    for (let i = 0; i < text.length; i++) {
+     result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
     }
+    return btoa(result);
+   }
 
-    // URLパラメータから情報を取得
-    const urlParams = new URLSearchParams(window.location.search);
-    const encodedEvent = urlParams.get('e');
-    const encodedAnswer = urlParams.get('a');
-
-    if (encodedEvent) {
-     const decodedEvent = decodeData(encodedEvent);
-     if (decodedEvent && decodedEvent.title && decodedEvent.dates) {
-      currentEventData = decodedEvent;
-      currentStorageKey = 'survey_' + encodedEvent; // URLごとに保存先を分ける
-
-      // ブラウザのlocalStorageから既存の集計データを復元
-      const storedAnswers = localStorage.getItem(currentStorageKey);
-      if (storedAnswers) {
-       try {
-        currentAnswers = JSON.parse(storedAnswers);
-       } catch (e) { console.error("Failed to parse stored answers"); }
-      }
-
-      setupAnswerForm();
-      setupSummaryInfo();
-
-      if (encodedAnswer) {
-       // 【集計リンクを踏んだ場合】回答データを処理して集計画面へ
-       processAnswerData(encodedAnswer, true);
-       switchTab('summary');
-       document.getElementById('summary-result').classList.remove('hidden');
-
-       // リロード時に再度追加されないよう、URLから 'a' パラメータを消してスッキリさせる
-       const cleanUrl = window.location.pathname + '?e=' + encodedEvent;
-       window.history.replaceState({}, document.title, cleanUrl);
-      } else {
-       // 【参加者用URLを踏んだ場合】回答専用モードで表示
-       switchTab('answer');
-       document.getElementById('tab-navigation').classList.add('hidden');
-      }
-     } else {
-      showToast('無効なイベントURLです。', 'red');
-      switchTab('create');
+   // 簡易復号化
+   function simpleDecrypt(encodedText, key) {
+    try {
+     const text = atob(encodedText);
+     let result = '';
+     for (let i = 0; i < text.length; i++) {
+      result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
      }
-    } else {
-     // パラメータがない場合は作成画面を開く
-     switchTab('create');
+     return JSON.parse(decodeURIComponent(result));
+    } catch (e) {
+     return null;
     }
-   });
-
-   // --- ユーティリティ関数 ---
+   }
 
    function encodeData(obj) {
     return btoa(encodeURIComponent(JSON.stringify(obj)));
    }
 
    function decodeData(str) {
-    try {
-     return JSON.parse(decodeURIComponent(atob(str)));
-    } catch (e) {
-     return null;
-    }
+    try { return JSON.parse(decodeURIComponent(atob(str))); } catch (e) { return null; }
    }
 
+   // --- 初期化処理 ---
+   document.addEventListener('DOMContentLoaded', () => {
+    const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
+    if (navigator.share && !isFirefox) {
+     document.getElementById('share-btn-create').classList.remove('hidden');
+     document.getElementById('share-btn-answer').classList.remove('hidden');
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const encodedEvent = urlParams.get('e');
+    const encodedAnswer = urlParams.get('a');
+
+    // 1. まずイベント情報(e)の処理
+    if (encodedEvent) {
+     const decodedEvent = decodeData(encodedEvent);
+     if (decodedEvent && decodedEvent.title && decodedEvent.dates) {
+      // 過去の仕様(id無し)互換対応
+      if (!decodedEvent.id) {
+       decodedEvent.id = 'legacy_' + generateRandomStr(5);
+       decodedEvent.enc = false;
+      }
+      setCurrentEvent(decodedEvent);
+     } else {
+      showToast('無効なイベントURLです。', 'red');
+     }
+    }
+
+    // 2. 回答データ(a)の処理
+    if (encodedAnswer) {
+     const result = processAnswerData(encodedAnswer, true);
+
+     if (result.success) {
+      switchTab('summary');
+      document.getElementById('summary-result').classList.remove('hidden');
+
+      // URLから 'a' を消す (クリーンアップ)
+      let cleanUrl = window.location.pathname;
+      if (encodedEvent) cleanUrl += '?e=' + encodedEvent;
+      window.history.replaceState({}, document.title, cleanUrl);
+     } else {
+      // エラー時
+      showToast(result.error, 'red');
+      // イベント情報が未定義なら作成へ、あれば回答または集計へ
+      if (!currentEventData) switchTab('create');
+      else switchTab('summary');
+     }
+    }
+    // aパラメータがなく、eだけがある場合は回答画面へ
+    else if (encodedEvent && currentEventData) {
+     switchTab('answer');
+     document.getElementById('tab-navigation').classList.add('hidden');
+    }
+    // パラメータが何もない場合は作成画面へ
+    else {
+     switchTab('create');
+    }
+   });
+
+   // カレントイベントをセットし、ローカルから過去の回答を読み込む
+   function setCurrentEvent(eventObj) {
+    currentEventData = eventObj;
+    currentEventId = eventObj.id;
+
+    // イベントマスタ情報をローカルに保存(集計用に保持)
+    localStorage.setItem('master_' + currentEventId, JSON.stringify(currentEventData));
+
+    // ローカルから集計データをロード
+    const storedAnswers = localStorage.getItem('survey_ans_' + currentEventId);
+    if (storedAnswers) {
+     try { currentAnswers = JSON.parse(storedAnswers); } catch (e) { currentAnswers = []; }
+    } else {
+     currentAnswers = [];
+    }
+
+    setupAnswerForm();
+    setupSummaryInfo();
+   }
+
+
+   // --- ユーティリティ・UI制御 ---
    function switchTab(tabId) {
     const sections = ['create', 'answer', 'summary'];
-
     sections.forEach(id => {
      const sectionEl = document.getElementById(`section-${id}`);
-     if (id === tabId) {
-      sectionEl.classList.remove('hidden-section');
-     } else {
-      sectionEl.classList.add('hidden-section');
-     }
+     if (id === tabId) sectionEl.classList.remove('hidden-section');
+     else sectionEl.classList.add('hidden-section');
 
      const tabEl = document.getElementById(`tab-${id}`);
      if (id === tabId) {
@@ -436,7 +501,6 @@
      }
     });
 
-    // 集計画面を開いた時、データがあれば表を表示
     if (tabId === 'summary' && currentAnswers.length > 0) {
      renderSummaryTable(currentAnswers);
      document.getElementById('summary-result').classList.remove('hidden');
@@ -444,46 +508,28 @@
    }
 
    let toastTimeout;
-
    function showToast(message, color = 'blue', event = null) {
     const toast = document.getElementById('toast');
     toast.textContent = message;
-
-    // ベースのクラス設定 (最前面に表示し、影をつける)
     toast.className = `z-50 p-3 rounded-lg shadow-lg text-sm text-center font-bold transition-opacity duration-300 opacity-100 pointer-events-none`;
 
     if (color === 'red') toast.classList.add('bg-red-100', 'text-red-700', 'border', 'border-red-200');
     else if (color === 'green') toast.classList.add('bg-green-100', 'text-green-700', 'border', 'border-green-200');
     else toast.classList.add('bg-blue-100', 'text-blue-700', 'border', 'border-blue-200');
 
-    if (event && event.currentTarget) {
-     // ボタンの近くに絶対配置
-     toast.style.position = 'absolute';
-     const rect = event.currentTarget.getBoundingClientRect();
-     const top = rect.top + window.scrollY - 10; // ボタンの上
-     const left = rect.left + window.scrollX + (rect.width / 2);
-
-     toast.style.top = `${top}px`;
-     toast.style.left = `${left}px`;
-     toast.style.transform = 'translate(-50%, -100%)';
+    toast.style.position = 'fixed';
+    if (window.innerWidth >= 768) {
+     toast.style.top = '20px';
+     toast.style.bottom = 'auto';
     } else {
-     // デフォルト配置（スマホ: 下部、PC: 上部）
-     toast.style.position = 'fixed';
-     if (window.innerWidth >= 768) {
-      toast.style.top = '20px';
-      toast.style.bottom = 'auto';
-     } else {
-      toast.style.bottom = '100px';
-      toast.style.top = 'auto';
-     }
-     toast.style.left = '50%';
-     toast.style.transform = 'translate(-50%, 0)';
+     toast.style.bottom = '100px';
+     toast.style.top = 'auto';
     }
+    toast.style.left = '50%';
+    toast.style.transform = 'translate(-50%, 0)';
 
     toast.classList.remove('hidden');
-
     if (toastTimeout) clearTimeout(toastTimeout);
-
     toastTimeout = setTimeout(() => {
      toast.classList.replace('opacity-100', 'opacity-0');
      setTimeout(() => { toast.classList.add('hidden'); }, 300);
@@ -494,7 +540,6 @@
     const inputEl = document.getElementById(inputId);
     inputEl.select();
     inputEl.setSelectionRange(0, 99999);
-
     try {
      document.execCommand('copy');
      showToast(successMessage, color, event);
@@ -505,38 +550,20 @@
 
    async function shareUrl(inputId, textMsg) {
     const url = document.getElementById(inputId).value;
-    try {
-     await navigator.share({
-      title: '日程調整',
-      text: textMsg,
-      url: url
-     });
-    } catch (err) {
-     // ユーザーが共有をキャンセルした場合などは何もしない
-     console.log('Share canceled or failed.', err);
-    }
+    try { await navigator.share({ title: '日程調整', text: textMsg, url: url }); } catch (err) { }
    }
 
    // --- 1. 作成機能 ---
    function addCandidateDate() {
     const dateVal = document.getElementById('create-date').value;
     const timeVal = document.getElementById('create-time').value;
-
-    if (!dateVal) {
-     showToast('日付を選択してください', 'red');
-     return;
-    }
+    if (!dateVal) { showToast('日付を選択してください', 'red'); return; }
 
     const dateTimeStr = timeVal ? `${dateVal}T${timeVal}` : `${dateVal}T00:00`;
     const dateObjForSort = new Date(dateTimeStr);
-
     const dateObj = new Date(dateVal);
-    const m = dateObj.getMonth() + 1;
-    const d = dateObj.getDate();
     const days = ['日', '月', '火', '水', '木', '金', '土'];
-    const dayStr = days[dateObj.getDay()];
-
-    let displayStr = `${m}/${d} (${dayStr})`;
+    let displayStr = `${dateObj.getMonth() + 1}/${dateObj.getDate()} (${days[dateObj.getDay()]})`;
     if (timeVal) displayStr += ` ${timeVal}〜`;
 
     creationDates.push({ timestamp: dateObjForSort.getTime(), display: displayStr });
@@ -557,46 +584,53 @@
     creationDates.forEach((dateItem, idx) => {
      const li = document.createElement('li');
      li.className = 'flex justify-between items-center bg-gray-50 p-3 rounded-lg border border-gray-200 text-sm';
-
-     const span = document.createElement('span');
-     span.className = 'font-medium text-gray-800';
-     span.textContent = dateItem.display;
-
-     const btn = document.createElement('button');
-     btn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
-     btn.className = 'text-gray-400 hover:text-red-500 transition-colors p-1';
-     btn.onclick = () => removeCandidateDate(idx);
-
-     li.appendChild(span);
-     li.appendChild(btn);
+     li.innerHTML = `<span class="font-medium text-gray-800">${dateItem.display}</span>
+                     <button onclick="removeCandidateDate(${idx})" class="text-gray-400 hover:text-red-500 transition-colors p-1">
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                     </button>`;
      listEl.appendChild(li);
     });
    }
 
    function generateEventUrl() {
     const titleInput = document.getElementById('create-title').value.trim();
-
     if (!titleInput) { showToast('イベント名を入力してください', 'red'); return; }
     if (creationDates.length === 0) { showToast('候補日時を1つ以上追加してください', 'red'); return; }
 
+    const isEncrypted = document.getElementById('create-encrypt').checked;
+
+    // イベントデータを構築
     const eventData = {
+     id: generateRandomStr(12),
      title: titleInput,
-     dates: creationDates.map(item => item.display)
+     dates: creationDates.map(item => item.display),
+     enc: isEncrypted
     };
+
+    // 暗号化ONならキーを生成して持たせる
+    if (isEncrypted) {
+     eventData.key = generateRandomStr(16);
+    }
 
     const encodedString = encodeData(eventData);
     const baseUrl = window.location.href.split('?')[0];
     const fullUrl = `${baseUrl}?e=${encodedString}`;
 
     document.getElementById('generated-url').value = fullUrl;
+
+    const badge = document.getElementById('create-result-badge');
+    if (isEncrypted) {
+     badge.innerHTML = '🔒 暗号化ON';
+     badge.className = 'ml-2 text-xs font-bold px-2 py-1 bg-green-100 text-green-700 rounded-full border border-green-200';
+    } else {
+     badge.innerHTML = '🔓 暗号化OFF';
+     badge.className = 'ml-2 text-xs font-normal px-2 py-1 bg-white text-gray-500 rounded-full border border-gray-200';
+    }
+
     document.getElementById('create-result').classList.remove('hidden');
 
-    // 状態更新
-    currentEventData = eventData;
-    currentStorageKey = 'survey_' + encodedString;
-    currentAnswers = []; // 新規作成時は空
-    setupAnswerForm();
-    setupSummaryInfo();
+    // 状態更新とローカル保存
+    setCurrentEvent(eventData);
 
     document.getElementById('create-result').scrollIntoView({ behavior: 'smooth' });
    }
@@ -604,7 +638,6 @@
    // --- 2. 回答機能 ---
    function setupAnswerForm() {
     if (!currentEventData) return;
-
     document.getElementById('answer-no-data').classList.add('hidden');
     document.getElementById('answer-form-container').classList.remove('hidden');
     document.getElementById('display-event-title').textContent = currentEventData.title;
@@ -615,37 +648,19 @@
     currentEventData.dates.forEach((date, index) => {
      const row = document.createElement('div');
      row.className = 'flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-3 rounded-lg border border-gray-200';
+     const dateText = `<span class="font-medium text-gray-800 mb-2 sm:mb-0">${date}</span>`;
 
-     const dateText = document.createElement('span');
-     dateText.className = 'font-medium text-gray-800 mb-2 sm:mb-0';
-     dateText.textContent = date;
-
-     const radioGroup = document.createElement('div');
-     radioGroup.className = 'flex radio-btn-group w-full sm:w-auto';
-
-     const options = ['◯', '×'];
-     options.forEach(opt => {
+     let radioHTML = `<div class="flex radio-btn-group w-full sm:w-auto">`;
+     ['◯', '×'].forEach(opt => {
       const id = `ans-${index}-${opt}`;
       const name = `date-${index}`;
-
-      const input = document.createElement('input');
-      input.type = 'radio';
-      input.id = id;
-      input.name = name;
-      input.value = opt;
-      if (opt === '◯') input.checked = true;
-
-      const label = document.createElement('label');
-      label.htmlFor = id;
-      label.textContent = opt;
-      label.className = 'flex-1 sm:flex-none w-12';
-
-      radioGroup.appendChild(input);
-      radioGroup.appendChild(label);
+      const checked = (opt === '◯') ? 'checked' : '';
+      radioHTML += `<input type="radio" id="${id}" name="${name}" value="${opt}" ${checked}>
+                    <label for="${id}" class="flex-1 sm:flex-none w-12">${opt}</label>`;
      });
+     radioHTML += `</div>`;
 
-     row.appendChild(dateText);
-     row.appendChild(radioGroup);
+     row.innerHTML = dateText + radioHTML;
      datesListEl.appendChild(row);
     });
    }
@@ -660,20 +675,26 @@
      answersArray.push(selected ? selected.value : '×');
     });
 
-    const answerData = {
-     n: nameInput,
-     a: answersArray
-    };
-
-    const encodedAnswerToken = encodeData(answerData);
-
-    // 現在のイベント情報パラメータ(e)を取得
-    const urlParams = new URLSearchParams(window.location.search);
-    const currentE = urlParams.get('e') || encodeData(currentEventData); // 念のため再生成対応
-
-    // イベント情報(e)と回答情報(a)を含んだ集計用リンクを作成
+    const ansObj = { n: nameInput, a: answersArray };
+    let finalAnswerParam = '';
     const baseUrl = window.location.href.split('?')[0];
-    const answerLink = `${baseUrl}?e=${currentE}&a=${encodedAnswerToken}`;
+    let answerLink = '';
+
+    if (currentEventData.enc) {
+     // --- 暗号化ONの場合 ---
+     // 回答データを暗号化し、イベント情報(e)はURLに含めない。
+     const encData = simpleEncrypt(ansObj, currentEventData.key);
+     const payload = { enc: true, id: currentEventData.id, data: encData };
+     finalAnswerParam = encodeData(payload);
+     answerLink = `${baseUrl}?a=${finalAnswerParam}`;
+    } else {
+     // --- 暗号化OFFの場合 ---
+     // 回答データをそのまま乗せ、利便性のためイベント情報(e)もURLに残す。
+     const payload = { enc: false, id: currentEventData.id, n: nameInput, a: answersArray };
+     finalAnswerParam = encodeData(payload);
+     const currentE = new URLSearchParams(window.location.search).get('e') || encodeData(currentEventData);
+     answerLink = `${baseUrl}?e=${currentE}&a=${finalAnswerParam}`;
+    }
 
     document.getElementById('generated-answer-url').value = answerLink;
     document.getElementById('answer-result').classList.remove('hidden');
@@ -685,6 +706,12 @@
     if (currentEventData) {
      document.getElementById('summary-event-info').classList.remove('hidden');
      document.getElementById('summary-event-title').textContent = currentEventData.title;
+
+     if (currentEventData.enc) {
+      document.getElementById('summary-enc-badge').classList.remove('hidden');
+     } else {
+      document.getElementById('summary-enc-badge').classList.add('hidden');
+     }
     }
    }
 
@@ -698,98 +725,138 @@
      const encodedEvent = url.searchParams.get('e');
 
      if (encodedEvent) {
-      const decoded = decodeData(encodedEvent);
-      if (decoded && decoded.title && decoded.dates) {
-       currentEventData = decoded;
-       currentStorageKey = 'survey_' + encodedEvent;
-
-       // 保存された回答を復元
-       const storedAnswers = localStorage.getItem(currentStorageKey);
-       if (storedAnswers) {
-        try { currentAnswers = JSON.parse(storedAnswers); } catch (e) { }
-       } else {
-        currentAnswers = []; // なければクリア
-       }
-
-       setupSummaryInfo();
-       setupAnswerForm();
+      const decodedEvent = decodeData(encodedEvent);
+      if (decodedEvent && decodedEvent.title && decodedEvent.dates) {
+       if (!decodedEvent.id) { decodedEvent.id = 'legacy_' + generateRandomStr(5); decodedEvent.enc = false; }
+       setCurrentEvent(decodedEvent);
        showToast('イベント情報を読み込みました！', 'green');
        document.getElementById('summary-event-url').value = '';
 
        if (currentAnswers.length > 0) {
         renderSummaryTable(currentAnswers);
         document.getElementById('summary-result').classList.remove('hidden');
+       } else {
+        document.getElementById('summary-result').classList.add('hidden');
        }
       } else {
        showToast('無効なイベントデータです。', 'red');
       }
      } else {
-      showToast('入力されたURLにイベント情報が含まれていません。', 'red');
+      showToast('入力されたURLにイベント情報(e=...)が含まれていません。', 'red');
      }
     } catch (e) {
      showToast('正しいURL形式で入力してください。', 'red');
     }
    }
 
-   // データ処理の共通関数（リンクを踏んだ時 ＆ 手動追加した時）
+   // 回答データを解釈し、集計に反映する
    function processAnswerData(encodedAnswer, isShowSuccess = true) {
     const decoded = decodeData(encodedAnswer);
-    if (decoded && decoded.n && Array.isArray(decoded.a)) {
-     let safeAnswers = decoded.a;
-     // 日程数が合わない場合は補正
-     if (safeAnswers.length < currentEventData.dates.length) {
-      const diff = currentEventData.dates.length - safeAnswers.length;
-      safeAnswers = safeAnswers.concat(Array(diff).fill('-'));
-     }
+    if (!decoded) return { success: false, error: '無効な回答データ形式です。' };
 
-     // 上書き or 追加
-     const existingIndex = currentAnswers.findIndex(ans => ans.name === decoded.n);
-     if (existingIndex >= 0) {
-      currentAnswers[existingIndex] = { name: decoded.n, answers: safeAnswers };
-      if (isShowSuccess) showToast(`${decoded.n} さんの回答を更新しました！`, 'blue');
+    let targetEventId = decoded.id;
+    let name = '';
+    let answers = [];
+
+    // --- 旧仕様互換 ---
+    if (!decoded.enc && !decoded.id) {
+     if (decoded.n && Array.isArray(decoded.a)) {
+      name = decoded.n;
+      answers = decoded.a;
+      targetEventId = currentEventId; // 無理やり現在のイベントに紐付ける
      } else {
-      currentAnswers.push({ name: decoded.n, answers: safeAnswers });
-      if (isShowSuccess) showToast(`${decoded.n} さんの回答を追加しました！`, 'green');
+      return { success: false, error: '古い形式か破損した回答データです。' };
      }
-
-     // localStorage に保存
-     if (currentStorageKey) {
-      localStorage.setItem(currentStorageKey, JSON.stringify(currentAnswers));
-     }
-
-     renderSummaryTable(currentAnswers);
-     return true;
     }
-    return false;
+    // --- 暗号化あり ---
+    else if (decoded.enc === true) {
+     // まずマスターデータ（復号キー）を探す
+     let targetEvent = null;
+     if (currentEventData && currentEventData.id === targetEventId) {
+      targetEvent = currentEventData;
+     } else {
+      const storedMaster = localStorage.getItem('master_' + targetEventId);
+      if (storedMaster) targetEvent = JSON.parse(storedMaster);
+     }
+
+     if (!targetEvent || !targetEvent.key) {
+      return { success: false, error: '暗号化キーがありません。作成時のブラウザか「参加者用URL」を先に読み込んでください。' };
+     }
+
+     // 復号
+     const decAns = simpleDecrypt(decoded.data, targetEvent.key);
+     if (!decAns || !decAns.n) {
+      return { success: false, error: '回答の復元に失敗しました。キーが異なるかデータが破損しています。' };
+     }
+
+     name = decAns.n;
+     answers = decAns.a;
+
+     // 読み込んだイベントが現在表示中のものと異なる場合、自動的に切り替える
+     if (!currentEventData || currentEventData.id !== targetEventId) {
+      setCurrentEvent(targetEvent);
+     }
+    }
+    // --- 暗号化なし ---
+    else {
+     name = decoded.n;
+     answers = decoded.a;
+
+     // 読み込んだイベントが現在表示中のものと異なる場合、ローカルにあれば切り替える
+     if (!currentEventData || currentEventData.id !== targetEventId) {
+      const storedMaster = localStorage.getItem('master_' + targetEventId);
+      if (storedMaster) {
+       setCurrentEvent(JSON.parse(storedMaster));
+      } else {
+       // なければ現在のイベントに無理やり追加（互換性担保）
+       targetEventId = currentEventId;
+      }
+     }
+    }
+
+    if (!name || !targetEventId || !currentEventData) {
+     return { success: false, error: 'データを追加するイベント情報がありません。' };
+    }
+
+    // 日程数が合わない場合は補正
+    if (answers.length < currentEventData.dates.length) {
+     const diff = currentEventData.dates.length - answers.length;
+     answers = answers.concat(Array(diff).fill('-'));
+    }
+
+    // 追加 or 上書き
+    const existingIndex = currentAnswers.findIndex(ans => ans.name === name);
+    if (existingIndex >= 0) {
+     currentAnswers[existingIndex] = { name: name, answers: answers };
+     if (isShowSuccess) showToast(`${name} さんの回答を更新しました！`, 'blue');
+    } else {
+     currentAnswers.push({ name: name, answers: answers });
+     if (isShowSuccess) showToast(`${name} さんの回答を追加しました！`, 'green');
+    }
+
+    // localStorage に保存
+    localStorage.setItem('survey_ans_' + currentEventId, JSON.stringify(currentAnswers));
+    renderSummaryTable(currentAnswers);
+    return { success: true };
    }
 
    function addAnswerManual() {
-    if (!currentEventData) {
-     showToast('イベント情報がありません。「イベント情報の復元」にURLを入力するか作成してください。', 'red');
-     return;
-    }
-
-    const inputVal = document.getElementById('summary-token').value.trim();
-    if (!inputVal) { showToast('URLまたはテキストを入力してください。', 'red'); return; }
+    let inputVal = document.getElementById('summary-token').value.trim();
+    if (!inputVal) { showToast('URLを入力してください。', 'red'); return; }
 
     let encodedAnswer = inputVal;
-
-    // URLが貼り付けられた場合は 'a' パラメータを抽出する
     try {
      const url = new URL(inputVal.startsWith('http') ? inputVal : 'https://' + inputVal);
      const paramA = url.searchParams.get('a');
-     if (paramA) {
-      encodedAnswer = paramA;
-     }
-    } catch (e) {
-     // URLパースエラーの場合は、直接トークン文字列が貼られたとみなす
-    }
+     if (paramA) encodedAnswer = paramA;
+    } catch (e) { }
 
-    if (processAnswerData(encodedAnswer)) {
-     document.getElementById('summary-token').value = ''; // クリア
+    const result = processAnswerData(encodedAnswer);
+    if (result.success) {
+     document.getElementById('summary-token').value = '';
      document.getElementById('summary-result').classList.remove('hidden');
     } else {
-     showToast('無効な回答データです。', 'red');
+     showToast(result.error, 'red');
     }
    }
 
@@ -797,9 +864,7 @@
     if (currentAnswers.length === 0) return;
     if (confirm('これまで追加した回答データをすべて削除しますか？\n（参加者用URLは引き続き有効です）')) {
      currentAnswers = [];
-     if (currentStorageKey) {
-      localStorage.removeItem(currentStorageKey);
-     }
+     localStorage.removeItem('survey_ans_' + currentEventId);
      document.getElementById('summary-result').classList.add('hidden');
      showToast('集計データをリセットしました。', 'blue');
     }
@@ -810,13 +875,9 @@
     const tbody = document.getElementById('summary-tbody');
     const tfoot = document.getElementById('summary-tfoot');
 
-    thead.innerHTML = '';
-    tbody.innerHTML = '';
-    tfoot.innerHTML = '';
+    thead.innerHTML = ''; tbody.innerHTML = ''; tfoot.innerHTML = '';
 
-    // --- ヘッダー生成 ---
     const trHead = document.createElement('tr');
-
     const thName = document.createElement('th');
     thName.className = 'px-4 py-3 text-left font-bold text-gray-600 border border-gray-200 min-w-[120px] sticky left-0 bg-gray-50';
     thName.textContent = '参加者';
@@ -830,13 +891,10 @@
     });
     thead.appendChild(trHead);
 
-    // --- 集計用配列の初期化 ---
     const counts = currentEventData.dates.map(() => ({ o: 0, x: 0 }));
 
-    // --- ボディ生成 ---
     answers.forEach(userAns => {
      const tr = document.createElement('tr');
-
      const tdName = document.createElement('td');
      tdName.className = 'px-4 py-3 font-medium text-gray-800 border border-gray-200 sticky left-0 bg-white';
      tdName.textContent = userAns.name;
@@ -847,17 +905,14 @@
       td.className = 'px-4 py-3 text-center text-lg border border-gray-200';
       const mark = userAns.answers[idx] || '-';
       td.textContent = mark;
-
       if (mark === '◯') { td.classList.add('text-blue-600', 'bg-blue-50/30'); counts[idx].o++; }
       else if (mark === '×') { td.classList.add('text-red-500'); counts[idx].x++; }
       else { td.classList.add('text-gray-300'); }
-
       tr.appendChild(td);
      });
      tbody.appendChild(tr);
     });
 
-    // --- フッター（合計）生成 ---
     const trFoot = document.createElement('tr');
     const tdLabel = document.createElement('td');
     tdLabel.className = 'px-4 py-3 text-right font-bold text-indigo-900 border border-gray-200 sticky left-0 bg-indigo-50';
@@ -867,7 +922,6 @@
     counts.forEach(count => {
      const td = document.createElement('td');
      td.className = 'px-4 py-3 text-center font-bold text-indigo-700 border border-gray-200';
-
      if (count.o === answers.length && answers.length > 0) {
       td.className += ' bg-yellow-100 text-yellow-800 text-xl';
       td.textContent = `★ ${count.o} / ${answers.length}`;
