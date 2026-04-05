@@ -182,7 +182,7 @@
         <span class="text-sm font-bold text-gray-700">回答データを暗号化する</span>
        </label>
        <p class="text-xs text-gray-500 mt-2 ml-6">ONにすると、回答URLが第三者に漏れても内容を復元できません。<br><span
-         class="text-red-500 font-medium">※集計を行うには、このブラウザを使うか「参加者用URL」を控えておく必要があります。</span></p>
+         class="text-red-500 font-medium">※集計を行うには、このブラウザ（端末）を使い続ける必要があります。</span></p>
       </div>
 
       <button onclick="generateEventUrl()"
@@ -244,7 +244,7 @@
        </div>
       </div>
 
-      <button onclick="generateAnswerUrl()"
+      <button id="btn-submit-answer" onclick="generateAnswerUrl()"
        class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm">
        回答リンクを発行する
       </button>
@@ -290,7 +290,8 @@
      <!-- URLによるイベント復元エリア -->
      <div id="summary-setup-area" class="bg-blue-50 p-4 rounded-lg border border-blue-100">
       <label class="block text-sm font-bold text-blue-900 mb-2">イベント情報の読み込み</label>
-      <p class="text-xs text-blue-800 mb-2">集計対象を切り替える場合や、エラーが出た場合は発行した「参加者用URL」をここに入力してください。</p>
+      <p class="text-xs text-blue-800 mb-2">集計対象を切り替える場合は「参加者用URL」をここに入力してください。<br><span
+        class="text-red-500">※暗号化ONのイベントは、作成したブラウザ以外では読み込めません。</span></p>
       <div class="flex flex-col sm:flex-row gap-2">
        <input type="text" id="summary-event-url" placeholder="https://..."
         class="flex-1 border border-blue-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
@@ -319,7 +320,7 @@
       <div class="flex flex-col sm:flex-row gap-2">
        <input type="text" id="summary-token" placeholder="https://... または eyJ..."
         class="flex-1 border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
-       <button onclick="addAnswerManual()"
+       <button id="btn-manual-add" onclick="addAnswerManual()"
         class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors shadow-sm whitespace-nowrap">
         追加して集計
        </button>
@@ -361,36 +362,57 @@
   <!-- JavaScript ロジック -->
   <script>
    // --- 状態管理 ---
-   let currentEventData = null; // { id: "xxx", title: "...", dates: [...], enc: true/false, key: "..." }
+   let currentEventData = null; // { id: "xxx", title: "...", dates: [...], enc: true/false, publicKey: {...} }
    let currentAnswers = [];     // [{ name: "山田", answers: ["◯", "×"] }]
    let creationDates = [];      // 作成中の候補日時リスト
    let currentEventId = '';     // 現在フォーカスしているイベントID
 
-   // ランダムなIDや暗号キーを生成する
+   // ランダムなIDを生成する
    function generateRandomStr(len = 10) {
     return Array.from(crypto.getRandomValues(new Uint8Array(len)))
      .map(b => b.toString(36).padStart(2, '0')).join('').substring(0, len);
    }
 
-   // 簡易暗号化 (XOR + Base64)
-   function simpleEncrypt(obj, key) {
-    const text = encodeURIComponent(JSON.stringify(obj));
-    let result = '';
-    for (let i = 0; i < text.length; i++) {
-     result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-    }
-    return btoa(result);
+   // --- 暗号化ユーティリティ (Web Crypto API - RSA-OAEP) ---
+   // ※非対称暗号を使用し、秘密鍵はローカルストレージのみに保存。公開鍵はURLに含める。
+   async function generateKeyPair() {
+    const keyPair = await window.crypto.subtle.generateKey(
+     { name: "RSA-OAEP", modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: "SHA-256" },
+     true, ["encrypt", "decrypt"]
+    );
+    const publicKey = await window.crypto.subtle.exportKey("jwk", keyPair.publicKey);
+    const privateKey = await window.crypto.subtle.exportKey("jwk", keyPair.privateKey);
+    return { publicKey, privateKey };
    }
 
-   // 簡易復号化
-   function simpleDecrypt(encodedText, key) {
+   async function encryptDataAsync(dataObj, publicKeyJwk) {
+    const dataStr = JSON.stringify(dataObj);
+    const publicKey = await window.crypto.subtle.importKey(
+     "jwk", publicKeyJwk, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["encrypt"]
+    );
+    const enc = new TextEncoder();
+    const encrypted = await window.crypto.subtle.encrypt({ name: "RSA-OAEP" }, publicKey, enc.encode(dataStr));
+    const bytes = new Uint8Array(encrypted);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+     binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+   }
+
+   async function decryptDataAsync(encryptedBase64, privateKeyJwk) {
     try {
-     const text = atob(encodedText);
-     let result = '';
-     for (let i = 0; i < text.length; i++) {
-      result += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+     const privateKey = await window.crypto.subtle.importKey(
+      "jwk", privateKeyJwk, { name: "RSA-OAEP", hash: "SHA-256" }, true, ["decrypt"]
+     );
+     const binaryStr = atob(encryptedBase64);
+     const bytes = new Uint8Array(binaryStr.length);
+     for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
      }
-     return JSON.parse(decodeURIComponent(result));
+     const decrypted = await window.crypto.subtle.decrypt({ name: "RSA-OAEP" }, privateKey, bytes);
+     const dec = new TextDecoder();
+     return JSON.parse(dec.decode(decrypted));
     } catch (e) {
      return null;
     }
@@ -405,7 +427,7 @@
    }
 
    // --- 初期化処理 ---
-   document.addEventListener('DOMContentLoaded', () => {
+   document.addEventListener('DOMContentLoaded', async () => {
     const isFirefox = navigator.userAgent.toLowerCase().includes('firefox');
     if (navigator.share && !isFirefox) {
      document.getElementById('share-btn-create').classList.remove('hidden');
@@ -420,7 +442,6 @@
     if (encodedEvent) {
      const decodedEvent = decodeData(encodedEvent);
      if (decodedEvent && decodedEvent.title && decodedEvent.dates) {
-      // 過去の仕様(id無し)互換対応
       if (!decodedEvent.id) {
        decodedEvent.id = 'legacy_' + generateRandomStr(5);
        decodedEvent.enc = false;
@@ -433,7 +454,7 @@
 
     // 2. 回答データ(a)の処理
     if (encodedAnswer) {
-     const result = processAnswerData(encodedAnswer, true);
+     const result = await processAnswerData(encodedAnswer, true);
 
      if (result.success) {
       switchTab('summary');
@@ -446,7 +467,6 @@
      } else {
       // エラー時
       showToast(result.error, 'red');
-      // イベント情報が未定義なら作成へ、あれば回答または集計へ
       if (!currentEventData) switchTab('create');
       else switchTab('summary');
      }
@@ -467,8 +487,11 @@
     currentEventData = eventObj;
     currentEventId = eventObj.id;
 
-    // イベントマスタ情報をローカルに保存(集計用に保持)
-    localStorage.setItem('master_' + currentEventId, JSON.stringify(currentEventData));
+    // イベントマスタ情報(公開鍵含む)をローカルに保存 ※秘密鍵は作成時にのみ保存される
+    const existingMaster = localStorage.getItem('master_' + currentEventId);
+    if (!existingMaster) {
+     localStorage.setItem('master_' + currentEventId, JSON.stringify(currentEventData));
+    }
 
     // ローカルから集計データをロード
     const storedAnswers = localStorage.getItem('survey_ans_' + currentEventId);
@@ -481,7 +504,6 @@
     setupAnswerForm();
     setupSummaryInfo();
    }
-
 
    // --- ユーティリティ・UI制御 ---
    function switchTab(tabId) {
@@ -592,7 +614,7 @@
     });
    }
 
-   function generateEventUrl() {
+   async function generateEventUrl() {
     const titleInput = document.getElementById('create-title').value.trim();
     if (!titleInput) { showToast('イベント名を入力してください', 'red'); return; }
     if (creationDates.length === 0) { showToast('候補日時を1つ以上追加してください', 'red'); return; }
@@ -600,16 +622,25 @@
     const isEncrypted = document.getElementById('create-encrypt').checked;
 
     // イベントデータを構築
-    const eventData = {
+    let eventData = {
      id: generateRandomStr(12),
      title: titleInput,
      dates: creationDates.map(item => item.display),
      enc: isEncrypted
     };
 
-    // 暗号化ONならキーを生成して持たせる
+    let localMasterData = { ...eventData };
+
     if (isEncrypted) {
-     eventData.key = generateRandomStr(16);
+     showToast('暗号化キーを生成中...', 'blue');
+     try {
+      const keys = await generateKeyPair();
+      eventData.publicKey = keys.publicKey; // 参加者用URLに含める(公開鍵)
+      localMasterData.privateKey = keys.privateKey; // ローカルストレージ専用(秘密鍵)
+     } catch (e) {
+      showToast('暗号化キーの生成に失敗しました。', 'red');
+      return;
+     }
     }
 
     const encodedString = encodeData(eventData);
@@ -629,7 +660,8 @@
 
     document.getElementById('create-result').classList.remove('hidden');
 
-    // 状態更新とローカル保存
+    // 状態更新とローカル保存 (秘密鍵はここでのみ保存される)
+    localStorage.setItem('master_' + eventData.id, JSON.stringify(localMasterData));
     setCurrentEvent(eventData);
 
     document.getElementById('create-result').scrollIntoView({ behavior: 'smooth' });
@@ -665,9 +697,13 @@
     });
    }
 
-   function generateAnswerUrl() {
+   async function generateAnswerUrl() {
     const nameInput = document.getElementById('answer-name').value.trim();
     if (!nameInput) { showToast('お名前を入力してください', 'red'); return; }
+
+    const btn = document.getElementById('btn-submit-answer');
+    btn.disabled = true;
+    btn.textContent = '処理中...';
 
     const answersArray = [];
     currentEventData.dates.forEach((_, index) => {
@@ -680,16 +716,22 @@
     const baseUrl = window.location.href.split('?')[0];
     let answerLink = '';
 
-    if (currentEventData.enc) {
+    if (currentEventData.enc && currentEventData.publicKey) {
      // --- 暗号化ONの場合 ---
-     // 回答データを暗号化し、イベント情報(e)はURLに含めない。
-     const encData = simpleEncrypt(ansObj, currentEventData.key);
-     const payload = { enc: true, id: currentEventData.id, data: encData };
-     finalAnswerParam = encodeData(payload);
-     answerLink = `${baseUrl}?a=${finalAnswerParam}`;
+     // 回答データを公開鍵で暗号化し、イベント情報(e)はURLに含めない。
+     try {
+      const encData = await encryptDataAsync(ansObj, currentEventData.publicKey);
+      const payload = { enc: true, id: currentEventData.id, data: encData };
+      finalAnswerParam = encodeData(payload);
+      answerLink = `${baseUrl}?a=${finalAnswerParam}`;
+     } catch (e) {
+      showToast('暗号化処理に失敗しました。', 'red');
+      btn.disabled = false;
+      btn.textContent = '回答リンクを発行する';
+      return;
+     }
     } else {
      // --- 暗号化OFFの場合 ---
-     // 回答データをそのまま乗せ、利便性のためイベント情報(e)もURLに残す。
      const payload = { enc: false, id: currentEventData.id, n: nameInput, a: answersArray };
      finalAnswerParam = encodeData(payload);
      const currentE = new URLSearchParams(window.location.search).get('e') || encodeData(currentEventData);
@@ -699,6 +741,9 @@
     document.getElementById('generated-answer-url').value = answerLink;
     document.getElementById('answer-result').classList.remove('hidden');
     document.getElementById('answer-result').scrollIntoView({ behavior: 'smooth' });
+
+    btn.disabled = false;
+    btn.textContent = '回答リンクを発行する';
    }
 
    // --- 3. 集計機能 ---
@@ -727,6 +772,16 @@
      if (encodedEvent) {
       const decodedEvent = decodeData(encodedEvent);
       if (decodedEvent && decodedEvent.title && decodedEvent.dates) {
+
+       // 【重要】暗号化ONの場合、作成時のブラウザ（ローカルストレージ）に秘密鍵がないと読み込みを拒否する
+       if (decodedEvent.enc) {
+        const storedMasterStr = localStorage.getItem('master_' + decodedEvent.id);
+        if (!storedMasterStr || !JSON.parse(storedMasterStr).privateKey) {
+         showToast('エラー：このイベントは暗号化されているため、作成したブラウザでのみ読み込み可能です。', 'red');
+         return;
+        }
+       }
+
        if (!decodedEvent.id) { decodedEvent.id = 'legacy_' + generateRandomStr(5); decodedEvent.enc = false; }
        setCurrentEvent(decodedEvent);
        showToast('イベント情報を読み込みました！', 'green');
@@ -750,7 +805,7 @@
    }
 
    // 回答データを解釈し、集計に反映する
-   function processAnswerData(encodedAnswer, isShowSuccess = true) {
+   async function processAnswerData(encodedAnswer, isShowSuccess = true) {
     const decoded = decodeData(encodedAnswer);
     if (!decoded) return { success: false, error: '無効な回答データ形式です。' };
 
@@ -770,23 +825,21 @@
     }
     // --- 暗号化あり ---
     else if (decoded.enc === true) {
-     // まずマスターデータ（復号キー）を探す
-     let targetEvent = null;
-     if (currentEventData && currentEventData.id === targetEventId) {
-      targetEvent = currentEventData;
-     } else {
-      const storedMaster = localStorage.getItem('master_' + targetEventId);
-      if (storedMaster) targetEvent = JSON.parse(storedMaster);
+     // ローカルストレージから秘密鍵を探す
+     const storedMasterStr = localStorage.getItem('master_' + targetEventId);
+     if (!storedMasterStr) {
+      return { success: false, error: '復元エラー：このブラウザには復号に必要な秘密鍵が存在しません。' };
      }
 
-     if (!targetEvent || !targetEvent.key) {
-      return { success: false, error: '暗号化キーがありません。作成時のブラウザか「参加者用URL」を先に読み込んでください。' };
+     const storedMaster = JSON.parse(storedMasterStr);
+     if (!storedMaster.privateKey) {
+      return { success: false, error: '復元エラー：秘密鍵が見つかりません。' };
      }
 
-     // 復号
-     const decAns = simpleDecrypt(decoded.data, targetEvent.key);
+     // 秘密鍵で復号
+     const decAns = await decryptDataAsync(decoded.data, storedMaster.privateKey);
      if (!decAns || !decAns.n) {
-      return { success: false, error: '回答の復元に失敗しました。キーが異なるかデータが破損しています。' };
+      return { success: false, error: '復元エラー：回答の復号に失敗しました。データが破損しています。' };
      }
 
      name = decAns.n;
@@ -794,7 +847,7 @@
 
      // 読み込んだイベントが現在表示中のものと異なる場合、自動的に切り替える
      if (!currentEventData || currentEventData.id !== targetEventId) {
-      setCurrentEvent(targetEvent);
+      setCurrentEvent(storedMaster);
      }
     }
     // --- 暗号化なし ---
@@ -804,9 +857,9 @@
 
      // 読み込んだイベントが現在表示中のものと異なる場合、ローカルにあれば切り替える
      if (!currentEventData || currentEventData.id !== targetEventId) {
-      const storedMaster = localStorage.getItem('master_' + targetEventId);
-      if (storedMaster) {
-       setCurrentEvent(JSON.parse(storedMaster));
+      const storedMasterStr = localStorage.getItem('master_' + targetEventId);
+      if (storedMasterStr) {
+       setCurrentEvent(JSON.parse(storedMasterStr));
       } else {
        // なければ現在のイベントに無理やり追加（互換性担保）
        targetEventId = currentEventId;
@@ -840,9 +893,12 @@
     return { success: true };
    }
 
-   function addAnswerManual() {
+   async function addAnswerManual() {
     let inputVal = document.getElementById('summary-token').value.trim();
     if (!inputVal) { showToast('URLを入力してください。', 'red'); return; }
+
+    const btn = document.getElementById('btn-manual-add');
+    btn.disabled = true;
 
     let encodedAnswer = inputVal;
     try {
@@ -851,13 +907,14 @@
      if (paramA) encodedAnswer = paramA;
     } catch (e) { }
 
-    const result = processAnswerData(encodedAnswer);
+    const result = await processAnswerData(encodedAnswer);
     if (result.success) {
      document.getElementById('summary-token').value = '';
      document.getElementById('summary-result').classList.remove('hidden');
     } else {
      showToast(result.error, 'red');
     }
+    btn.disabled = false;
    }
 
    function clearSummary() {
